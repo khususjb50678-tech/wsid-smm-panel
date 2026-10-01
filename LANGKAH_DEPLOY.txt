@@ -1,0 +1,84 @@
+LANGKAH SAMPAI ONLINE
+
+1. GITHUB
+- Buat repository baru, misalnya wsid-smm-panel.
+- Upload SEMUA file ZIP ini langsung ke ROOT repository. Jangan buat folder.
+- Settings > Pages > Deploy from branch > main > /(root) > Save.
+
+2. SUPABASE
+- Buat project baru di supabase.com.
+- SQL Editor > New query.
+- Copy seluruh schema.sql > Run.
+
+3. STORAGE BUKTI DEPOSIT
+- Storage > New bucket.
+- Nama: deposit-proofs
+- Untuk keamanan, biarkan private.
+- Jika insert upload ditolak karena policy Storage belum dibuat, buat policy upload untuk authenticated user ke bucket deposit-proofs; batasi path awal dengan auth.uid() jika memungkinkan.
+
+4. CONFIG.JS
+Edit file di GitHub:
+SUPABASE_URL = URL project Supabase
+SUPABASE_ANON_KEY = publishable/anon key
+DANA_NUMBER = nomor DANA kamu
+DANA_NAME = Witama Store.ID
+QRIS_IMAGE_URL = boleh kosong
+
+Jangan masukkan API Key provider.
+
+5. AUTH
+Supabase > Authentication > URL Configuration.
+Isi Site URL dengan URL GitHub Pages kamu.
+Untuk testing paling mudah, matikan email confirmation agar register langsung aktif.
+
+6. ADMIN
+- Buka register.html dari GitHub Pages dan daftar dengan email admin.
+- Di Supabase SQL Editor jalankan:
+  update public.profiles set role='admin' where email='EMAIL_KAMU';
+- Admin URL: https://USERNAME.github.io/REPO/admin.html
+
+7. DANA MANUAL
+User: Deposit > isi nominal > transfer ke DANA kamu > upload bukti > Ajukan.
+Admin: /admin.html > Deposit > ACC/Tolak.
+ACC akan menambah saldo user otomatis.
+
+8. FAYUPEDIA
+- Supabase > Edge Functions > Create Function > nama: provider-fayupedia.
+- Source gunakan edge_provider_fayupedia.ts.
+- Deploy.
+- Edge Function Secrets: FAYU_API_ID dan FAYU_API_KEY.
+- Jangan kirim credential ke chat/GitHub.
+
+9. SYNC SERVICE
+Admin > Provider > Test Connection. Jika berhasil, Services > Sync Services.
+Setelah itu atur markup persen atau fixed.
+Contoh provider 2500 + 50% = 3750. Profit internal = 1250.
+
+10. ORDER
+Versi fondasi ini menyimpan order dan memotong saldo dengan aman. Pengiriman order production ke provider sebaiknya dites dulu dengan order kecil setelah koneksi provider benar-benar aktif. Jangan menganggap production selesai sebelum test status/refill/refund.
+
+11. API WSID
+Docs API memakai pola /api/services, /api/order, /api/status, /api/refill, /api/refill/status tanpa menyebut nama provider. Edge function publik/API key per-user perlu dideploy dan diuji sebelum diberikan ke pelanggan/software pihak ketiga.
+
+12. DOMAIN
+Setelah GitHub Pages normal, Settings > Pages > Custom domain untuk domain sendiri.
+
+CATATAN: ZIP ini adalah source awal siap deploy, bukan credential provider yang sudah terhubung. Credential dan URL Supabase memang harus diisi oleh pemilik akun.
+
+13. ORDER OTOMATIS KE PROVIDER
+- Deploy edge_provider_order.ts sebagai function `provider-order`.
+- Secret tambahan: SUPABASE_SERVICE_ROLE_KEY.
+- Setelah function aktif, saat user membuat order, website memanggil function ini dan order diteruskan server-side.
+- Jika provider menolak order, function mengubah order menjadi failed dan mengembalikan saldo user.
+
+14. STATUS OTOMATIS
+FAYUPEDIA memakai endpoint status (pull), bukan webhook di source ini. Untuk status otomatis, deploy function terjadwal yang membaca order processing lalu memanggil endpoint status dan update `orders.provider_status/status`. Jalankan terjadwal sekitar 1-5 menit untuk production. Refill memakai endpoint refill/refill-status yang sama melalui provider function.
+
+15. PRODUCTION CHECKLIST
+- Test deposit pending -> ACC -> saldo bertambah tepat sekali.
+- Test order kecil -> provider order ID tersimpan.
+- Test provider reject -> refund tepat sekali.
+- Test status processing/completed/failed.
+- Test logout/login.
+- Test admin tidak bisa diakses user biasa.
+- Test API key provider tidak muncul di browser/source GitHub.
