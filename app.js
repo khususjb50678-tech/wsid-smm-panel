@@ -273,11 +273,19 @@ async function orders(){
 }
 
 function paymentLogo(type,label){
-  const cls=String(type||'').toLowerCase();
-  return `<button class="payment-logo ${cls}" onclick="showPayment('${esc(type)}')" aria-label="${esc(label)}"><span>${esc(label)}</span></button>`;
+  const t=String(type||'').toLowerCase();
+  const icons={
+    dana:`<svg viewBox="0 0 110 44" aria-hidden="true"><rect x="2" y="2" width="106" height="40" rx="12" fill="#1188ff"/><text x="55" y="29" text-anchor="middle" font-size="19" font-weight="900" fill="#fff" font-family="Arial,sans-serif">DANA</text></svg>`,
+    gopay:`<svg viewBox="0 0 110 44" aria-hidden="true"><rect x="2" y="2" width="106" height="40" rx="12" fill="#00a878"/><text x="55" y="29" text-anchor="middle" font-size="18" font-weight="900" fill="#fff" font-family="Arial,sans-serif">GoPay</text></svg>`,
+    qris:`<svg viewBox="0 0 110 44" aria-hidden="true"><rect x="2" y="2" width="106" height="40" rx="12" fill="#fff"/><g fill="#111"><rect x="15" y="11" width="8" height="8"/><rect x="27" y="11" width="8" height="8"/><rect x="15" y="23" width="8" height="8"/><rect x="27" y="23" width="3" height="8"/><rect x="32" y="23" width="3" height="3"/></g><text x="73" y="28" text-anchor="middle" font-size="17" font-weight="900" fill="#111" font-family="Arial,sans-serif">QRIS</text></svg>`
+  };
+  return `<button class="payment-logo ${t}" onclick="showPayment('${esc(t)}',this)" aria-label="${esc(label)}">${icons[t]||''}</button>`;
 }
-window.showPayment=type=>{
+window.showPayment=(type,el)=>{
   const box=document.getElementById('payment-detail'); if(!box)return;
+  document.querySelectorAll('.payment-logo').forEach(x=>x.classList.remove('active'));
+  if(el)el.classList.add('active');
+  box.classList.remove('hidden');
   const t=String(type||'').toLowerCase();
   if(t==='qris'){
     const img=setting('qris_image_url');
@@ -297,7 +305,7 @@ function deposit(){
   <section class="deposit-card">
     <div class="section-label">Pembayaran</div>
     <div class="payment-logos">${paymentLogo('dana','DANA')}${paymentLogo('gopay','GoPay')}${paymentLogo('qris','QRIS')}</div>
-    <div id="payment-detail" class="payment-detail"></div>
+    <div id="payment-detail" class="payment-detail hidden"></div>
   </section>
   <section class="deposit-card">
     <div class="section-label">Nominal Deposit</div>
@@ -338,15 +346,24 @@ async function profile(){
   const devName=setting('developer_name','Witama Yuliananta');
   const devBio=setting('developer_bio','Developer dan pembuat WSID SMM PANEL. Website ini dikembangkan dan dikelola untuk kebutuhan Witama Store.ID.');
   const devLogo=setting('developer_logo_url','');
-  const wa=setting('support_whatsapp',''), tg=setting('support_telegram','');
-  return `<div class="head"><h1>Profil</h1></div>
-  <section class="card center"><div class="avatar">${esc((S.profile?.full_name||'W')[0])}</div>
+  const wa=setting('support_whatsapp',''), tg=setting('support_telegram',''), ig=setting('support_instagram','');
+  const waIcon=`<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="3"/><path d="M16.5 17.5c1.1-1.2 2.4-.6 3.1.4l1.6 2.6c.5.8.3 1.6-.2 2.1l-1.2 1.1c1.1 2.1 2.8 3.8 4.9 4.9l1.1-1.2c.5-.5 1.3-.7 2.1-.2l2.6 1.6c1 .7 1.6 2 .4 3.1-1.4 1.3-3.5 1.6-5.3.8-4.8-2-8.9-6.1-10.9-10.9-.8-1.8-.5-3.9.8-5.3Z" fill="currentColor"/></svg>`;
+  const tgIcon=`<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M41 8.5 34.8 39c-.5 2.2-1.8 2.7-3.6 1.7l-9.9-7.3-4.8 4.6c-.5.5-.9.9-1.9.9l.7-10.1 18.4-16.6c.8-.7-.2-1.1-1.2-.4L9.7 26.2.1 23.2c-2.1-.7-2.1-2.2.4-3.1L38 6c1.7-.7 3.2.4 3 2.5Z" fill="currentColor"/></svg>`;
+  const igIcon=`<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="9" y="9" width="30" height="30" rx="9" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="24" cy="24" r="7" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="32.5" cy="15.5" r="2" fill="currentColor"/></svg>`;
+  return `<div class="head"><h1>Profil</h1><small>Informasi akun dan pembuat website.</small></div>
+  <section class="card center profile-main"><div class="avatar">${esc((S.profile?.full_name||'W')[0])}</div>
     <h2>${esc(S.profile?.full_name||'Member')}</h2><small>${esc(S.user.email||'')}</small>
     <p>Saldo <b>${money(S.wallet?.balance)}</b></p></section>
   <section class="developer-card">
-    <div class="developer-title">${devLogo?`<img src="${esc(devLogo)}" alt="Developer">`:'<div class="developer-logo">W</div>'}<div><small>DEVELOPER WEBSITE</small><h2>${esc(devName)}</h2></div></div>
+    <div class="developer-topline"><span>WEBSITE DEVELOPER</span><i></i></div>
+    <div class="developer-title">${devLogo?`<img src="${esc(devLogo)}" alt="Logo developer">`:'<div class="developer-logo">W</div>'}<div><small>DIBUAT & DIKELOLA OLEH</small><h2>${esc(devName)}</h2><em>Founder • Developer • Owner</em></div></div>
     <p>${esc(devBio)}</p>
-    <div class="contact-logos">${wa?`<a class="contact-logo whatsapp" href="${esc(wa)}" target="_blank" rel="noopener" aria-label="WhatsApp"><span>WA</span></a>`:''}${tg?`<a class="contact-logo telegram" href="${esc(tg)}" target="_blank" rel="noopener" aria-label="Telegram"><span>TG</span></a>`:''}</div>
+    <div class="developer-contact-title">Butuh bantuan? Hubungi Customer Service</div>
+    <div class="contact-logos">
+      ${wa?`<a class="contact-logo whatsapp" href="${esc(wa)}" target="_blank" rel="noopener" aria-label="WhatsApp">${waIcon}</a>`:''}
+      ${tg?`<a class="contact-logo telegram" href="${esc(tg)}" target="_blank" rel="noopener" aria-label="Telegram">${tgIcon}</a>`:''}
+      ${ig?`<a class="contact-logo instagram" href="${esc(ig)}" target="_blank" rel="noopener" aria-label="Instagram">${igIcon}</a>`:''}
+    </div>
   </section>
   <div class="menus"><button onclick="logout()"><strong>↪</strong><span><b>Keluar</b><small>Keluar akun.</small></span>›</button></div>`;
 }

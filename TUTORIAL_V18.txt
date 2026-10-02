@@ -1,0 +1,56 @@
+WSID SMM PANEL V18 — CARA PASANG
+
+A. SUPABASE (WAJIB)
+1. Buka Supabase > SQL Editor.
+2. Buat query baru.
+3. Buka file FIX_V18.sql dari ZIP ini.
+4. Copy SEMUA isi file tersebut ke SQL Editor.
+5. Tekan Run.
+6. Jika muncul Success, selesai.
+7. Jangan jalankan RUN_ALL lama lagi jika database kamu sudah berjalan.
+
+B. GITHUB PAGES
+1. Upload semua file HTML/JS/CSS/SVG dari ZIP ini ke ROOT repository.
+2. Jangan masukkan file ke folder baru.
+3. Timpa file lama jika GitHub meminta konfirmasi.
+4. Commit changes.
+5. Buka website lalu refresh keras / hapus cache browser jika tampilan lama masih muncul.
+
+C. SETTING PEMBAYARAN
+Masuk Admin > Settings.
+- Nomor DANA
+- Nama DANA
+- Nomor GoPay
+- Nama GoPay
+- Foto QRIS
+
+Di halaman Deposit user, yang tampil pertama hanya logo DANA, GoPay, dan QRIS.
+Nomor DANA/GoPay atau foto QRIS baru muncul setelah user menekan logo metode tersebut.
+
+D. SETTING DEVELOPER
+Admin > Settings > Developer Website:
+- Upload logo developer
+- Isi nama developer
+- Isi deskripsi developer
+
+E. CUSTOMER SERVICE
+Admin > Settings > Customer Service:
+- Link WhatsApp
+- Link Telegram
+- Link Instagram
+
+Di Profil user, yang tampil hanya ikon/logo aplikasi. Saat diklik, user langsung diarahkan ke link yang kamu isi.
+
+F. RESET
+Admin > Reset sekarang menggunakan RPC yang diperbaiki.
+Setelah FIX_V18.sql berhasil dijalankan, tombol Reset tidak lagi menggunakan DELETE tanpa WHERE.
+
+Jika masih muncul error reset setelah SQL berhasil:
+1. Logout admin.
+2. Tutup tab website.
+3. Buka lagi website Admin.
+4. Coba Reset kembali.
+
+CATATAN KEAMANAN
+- Jangan menaruh token bot Telegram di GitHub.
+- Jika token bot pernah terlihat di screenshot/chat, sebaiknya rotasi token melalui BotFather lalu simpan token baru di tempat aman/Vault.

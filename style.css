@@ -30,3 +30,27 @@ select{width:100%;padding:12px;background:#080d13;border:1px solid #26333f;borde
 /* V17 - payment logos, developer card and contact icons */
 .payment-logos{display:flex;gap:10px;overflow-x:auto;padding:2px 1px 8px}.payment-logo{width:88px;height:58px;flex:0 0 88px;border:1px solid #263541;border-radius:15px;background:#080d13;color:#fff;display:grid;place-items:center;font-weight:900;letter-spacing:.2px;box-shadow:inset 0 -8px 18px rgba(0,0,0,.18)}.payment-logo.dana{background:linear-gradient(145deg,#0c6cff,#0751bd);border-color:#2b83ff}.payment-logo.gopay{background:linear-gradient(145deg,#0c9b72,#087153);border-color:#17bb8d}.payment-logo.qris{background:linear-gradient(145deg,#fff,#dce3e8);color:#111;border-color:#fff}.payment-logo:active{transform:scale(.97)}.payment-detail{margin-top:4px;padding:14px;border:1px solid #202d38;border-radius:14px;background:#070c12;text-align:center}.payment-detail-head b,.payment-detail-head small{display:block}.payment-detail-head b{font-size:18px}.payment-detail-head small{color:#8b97a5;margin-top:3px}.payment-number{display:flex;gap:8px;align-items:center;justify-content:center;margin-top:12px}.payment-number strong{font-size:18px;letter-spacing:.4px}.payment-qris{display:block;width:min(250px,100%);max-height:280px;object-fit:contain;margin:12px auto 0;padding:8px;background:#fff;border-radius:14px}.payment-note{display:block;color:#7e8b99;margin-top:9px}.developer-card{margin-top:10px;padding:16px;border:1px solid #2a3541;border-radius:17px;background:radial-gradient(circle at 100% 0,#310912,transparent 40%),linear-gradient(145deg,#0b1016,#070a0e)}.developer-title{display:flex;align-items:center;gap:12px}.developer-title img,.developer-logo{width:56px;height:56px;border-radius:15px;object-fit:cover;border:1px solid #ef1930;background:#21070c}.developer-logo{display:grid;place-items:center;color:#fff;font-weight:1000;font-size:24px}.developer-title small{display:block;color:#ff6b79;font-size:9px;letter-spacing:1.5px}.developer-title h2{margin:3px 0 0;font-size:18px}.developer-card p{color:#aab4c0;line-height:1.6;margin:13px 0 0}.contact-logos{display:flex;gap:9px;margin-top:13px}.contact-logo{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;color:#fff;font-weight:900;border:1px solid #293743}.contact-logo.whatsapp{background:#0c8f50;border-color:#20bf73}.contact-logo.telegram{background:#168dcc;border-color:#39aef0}.developer-admin-preview{display:block;width:90px;height:90px;object-fit:cover;margin:0 auto 12px;border-radius:16px;border:1px solid #ef1930;background:#070b10}
 textarea{width:100%;padding:12px;background:#080d13;border:1px solid #26333f;border-radius:10px;color:#fff;margin-top:5px;outline:0;resize:vertical;min-height:100px}
+
+/* V18 - payment logo only, improved developer section, settings fields */
+.payment-logos{align-items:center}
+.payment-logo{padding:0;border-radius:16px;overflow:hidden;background:#090e14}
+.payment-logo svg{display:block;width:100%;height:100%}
+.payment-logo.active{outline:2px solid #ef1930;outline-offset:2px}
+.payment-detail.hidden{display:none}
+.payment-detail:not(.hidden){animation:wsidFade .18s ease}
+@keyframes wsidFade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.developer-card{position:relative;overflow:hidden;padding:18px}
+.developer-card:before{content:"";position:absolute;inset:0;background:linear-gradient(135deg,rgba(239,25,48,.13),transparent 42%,rgba(255,255,255,.02));pointer-events:none}
+.developer-topline{position:relative;display:flex;align-items:center;gap:8px;margin-bottom:14px;color:#ff6b79;font-size:10px;font-weight:900;letter-spacing:2px}
+.developer-topline i{height:1px;flex:1;background:linear-gradient(90deg,#ef1930,transparent)}
+.developer-title{position:relative;align-items:center}
+.developer-title h2{font-size:20px;letter-spacing:-.3px}
+.developer-title em{display:block;color:#8793a1;font-size:11px;font-style:normal;margin-top:3px}
+.developer-card p{position:relative;font-size:14px;margin:15px 0 0}
+.developer-contact-title{position:relative;margin-top:17px;font-weight:800;font-size:13px;color:#e8edf2}
+.contact-logo{width:48px;height:48px;border-radius:15px}
+.contact-logo svg{width:27px;height:27px}
+.contact-logo.instagram{background:linear-gradient(145deg,#7b2cff,#ef3e7a);border-color:#c96cff}
+.developer-setting-preview{display:flex;justify-content:center;margin:4px 0 12px}
+.developer-admin-placeholder{width:90px;height:90px;border-radius:18px;border:1px solid #ef1930;background:linear-gradient(145deg,#21070c,#090d12);display:grid;place-items:center;font-size:34px;font-weight:900;color:#fff}
+.settings-card textarea{width:100%;resize:vertical;min-height:100px}

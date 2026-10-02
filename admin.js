@@ -125,31 +125,43 @@ window.runReset=async(target,message)=>{
 };
 
 async function settings(){
-  const [r,tg]=await Promise.all([sb.from('panel_settings').select('*'),sb.from('telegram_config').select('bot_token,chat_id').eq('id',1).maybeSingle()]);const v={};(r.data||[]).forEach(x=>v[x.key]=x.value);if(tg.data){v.telegram_bot_token=tg.data.bot_token||'';if(tg.data.chat_id)v.telegram_chat_id=tg.data.chat_id;}
-  return `<h1>Settings</h1><section class=\"card\"><h3>Branding & Kontak</h3>
-  <label>Nama Panel<input id=\"sn\" value=\"${esc(v.panel_name||'WSID SMM PANEL')}\"></label>
-  <label>Nama Owner<input id=\"so\" value=\"${esc(v.owner_name||'Witama Store.ID')}\"></label>
-  <label>Nomor DANA<input id=\"sd\" value=\"${esc(v.dana_number||'')}\"></label>
-  <label>Nama DANA<input id=\"sda\" value=\"${esc(v.dana_name||'Witama Store.ID')}\"></label>
-  <h3 class=\"settings-subtitle\">QRIS</h3>
-  <div class=\"qris-admin-box\">${v.qris_image_url?`<img src=\"${esc(v.qris_image_url)}\" class=\"qris-admin-preview\" alt=\"QRIS\">`: '<div class=\"empty\">Belum ada foto QRIS.</div>'}
-  <label class=\"upload-box admin-upload\"><span>↑</span><b>Pilih foto QRIS</b><small id=\"qris-name\">JPG, PNG atau WEBP • maksimal 2MB</small><input id=\"qrisFile\" type=\"file\" accept=\"image/jpeg,image/png,image/webp\" onchange=\"showQrisName(this)\"></label></div>
-  <label>WhatsApp Support<input id=\"sw\" value=\"${esc(v.support_whatsapp||'')}\"></label>
-  <label>Telegram Support<input id=\"st\" value=\"${esc(v.support_telegram||'')}\"></label>
-  <label>Instagram Support<input id=\"si\" value=\"${esc(v.support_instagram||'')}\"></label>
-  <h3 class=\"settings-subtitle\">Notifikasi Telegram</h3>
+  const [r,tg]=await Promise.all([sb.from('panel_settings').select('*'),sb.from('telegram_config').select('bot_token,chat_id').eq('id',1).maybeSingle()]);
+  const v={};(r.data||[]).forEach(x=>v[x.key]=x.value);if(tg.data){v.telegram_bot_token=tg.data.bot_token||'';if(tg.data.chat_id)v.telegram_chat_id=tg.data.chat_id;}
+  return `<h1>Settings</h1>
+  <section class="card settings-card"><h3>Branding & Kontak</h3>
+  <label>Nama Panel<input id="sn" value="${esc(v.panel_name||'WSID SMM PANEL')}"></label>
+  <label>Nama Owner<input id="so" value="${esc(v.owner_name||'Witama Store.ID')}"></label>
+  <h3 class="settings-subtitle">Pembayaran</h3>
+  <label>Nomor DANA<input id="sd" value="${esc(v.dana_number||'')}"></label>
+  <label>Nama DANA<input id="sda" value="${esc(v.dana_name||v.owner_name||'Witama Store.ID')}"></label>
+  <label>Nomor GoPay<input id="sg" value="${esc(v.gopay_number||'')}"></label>
+  <label>Nama GoPay<input id="sga" value="${esc(v.gopay_name||v.owner_name||'Witama Store.ID')}"></label>
+  <h3 class="settings-subtitle">QRIS</h3>
+  <div class="qris-admin-box">${v.qris_image_url?`<img src="${esc(v.qris_image_url)}" class="qris-admin-preview" alt="QRIS">`: '<div class="empty">Belum ada foto QRIS.</div>'}
+  <label class="upload-box admin-upload"><span>↑</span><b>Pilih foto QRIS</b><small id="qris-name">JPG, PNG atau WEBP • maksimal 2MB</small><input id="qrisFile" type="file" accept="image/jpeg,image/png,image/webp" onchange="showQrisName(this)"></label></div>
+  <h3 class="settings-subtitle">Developer Website</h3>
+  <div class="developer-setting-preview">${v.developer_logo_url?`<img src="${esc(v.developer_logo_url)}" class="developer-admin-preview" alt="Logo developer">`:'<div class="developer-admin-placeholder">W</div>'}</div>
+  <label class="upload-box admin-upload"><span>↑</span><b>Pilih logo developer</b><small id="developer-name">JPG, PNG atau WEBP • maksimal 2MB</small><input id="developerFile" type="file" accept="image/jpeg,image/png,image/webp" onchange="showDeveloperName(this)"></label>
+  <label>Nama Developer<input id="sdn" value="${esc(v.developer_name||'Witama Yuliananta')}"></label>
+  <label>Deskripsi Developer<textarea id="sdb" rows="4">${esc(v.developer_bio||'Developer dan pembuat WSID SMM PANEL. Website ini dikembangkan dan dikelola untuk kebutuhan Witama Store.ID.')}</textarea></label>
+  <h3 class="settings-subtitle">Customer Service</h3>
+  <label>Link WhatsApp<input id="sw" value="${esc(v.support_whatsapp||'')}" placeholder="https://wa.me/62xxxxxxxxxx"></label>
+  <label>Link Telegram<input id="st" value="${esc(v.support_telegram||'')}" placeholder="https://t.me/username"></label>
+  <label>Link Instagram<input id="si" value="${esc(v.support_instagram||'')}" placeholder="https://instagram.com/username"></label>
+  <h3 class="settings-subtitle">Notifikasi Telegram</h3>
   <label>Token Bot Telegram<input id="tb" type="text" value="${esc(v.telegram_bot_token||'')}" placeholder="Masukkan token bot Telegram"></label>
   <label>ID Telegram Admin / Test<input id="tc" value="${esc(v.telegram_chat_id||'')}" placeholder="Contoh: 123456789"></label>
   <label>Channel / Grup Notifikasi<input id="tnc" value="${esc(v.telegram_notify_chat_id||'')}" placeholder="Contoh: @channelkamu atau -1001234567890"></label>
   <label>Username Bot Telegram<input id="tbu" value="${esc(v.telegram_bot_username||'')}" placeholder="Contoh: UbotWSID"></label>
-  <small class="muted">Token digunakan untuk notifikasi panel ke Telegram dan hanya dapat diubah dari area Admin. Pastikan bot sudah menjadi admin di channel/grup tujuan.</small>
-  <div class=\"row\"><button class=\"btn red\" onclick=\"saveSettings()\">Simpan Settings</button><button class=\"btn\" onclick=\"testTelegram()\">Tes Telegram</button></div><p id=\"sm\" class=\"msg\"></p></section>`;
+  <small class="muted">Token digunakan untuk notifikasi panel ke Telegram. Untuk keamanan, sebaiknya token disimpan di Vault/SQL dan tidak dibagikan.</small>
+  <div class="row"><button class="btn red" onclick="saveSettings()">Simpan Settings</button><button class="btn" onclick="testTelegram()">Tes Telegram</button></div><p id="sm" class="msg"></p></section>`;
 }
 window.showQrisName=input=>{const f=input?.files?.[0],el=document.getElementById('qris-name');if(el)el.textContent=f?`File dipilih: ${f.name}`:'JPG, PNG atau WEBP • maksimal 2MB';};
 window.showDeveloperName=input=>{const f=input?.files?.[0],el=document.getElementById('developer-name');if(el)el.textContent=f?`File dipilih: ${f.name}`:'JPG, PNG atau WEBP • maksimal 2MB';};
 window.saveSettings=async()=>{
   try{
-    const map={panel_name:document.getElementById('sn').value,owner_name:document.getElementById('so').value,dana_number:document.getElementById('sd').value,dana_name:document.getElementById('sda').value,gopay_number:document.getElementById('sg').value,gopay_name:document.getElementById('sga').value,support_whatsapp:document.getElementById('sw').value,support_telegram:document.getElementById('st').value,support_instagram:document.getElementById('si').value,developer_name:document.getElementById('sdn').value,developer_bio:document.getElementById('sdb').value,telegram_chat_id:document.getElementById('tc').value.trim(),telegram_notify_chat_id:document.getElementById('tnc').value.trim(),telegram_bot_username:document.getElementById('tbu').value.trim()};
+    const val=id=>document.getElementById(id)?.value ?? '';
+    const map={panel_name:val('sn'),owner_name:val('so'),dana_number:val('sd'),dana_name:val('sda'),gopay_number:val('sg'),gopay_name:val('sga'),support_whatsapp:val('sw'),support_telegram:val('st'),support_instagram:val('si'),developer_name:val('sdn'),developer_bio:val('sdb'),telegram_chat_id:val('tc').trim(),telegram_notify_chat_id:val('tnc').trim(),telegram_bot_username:val('tbu').trim()};
     const telegramToken=document.getElementById('tb')?.value.trim(); const telegramChat=document.getElementById('tc')?.value.trim();
     if(telegramToken||telegramChat){const meTelegram=(await sb.auth.getUser()).data.user?.id||null;const tg=await sb.from('telegram_config').upsert({id:1,bot_token:telegramToken||null,chat_id:telegramChat||null,updated_by:meTelegram,updated_at:new Date().toISOString()},{onConflict:'id'});if(tg.error)throw tg.error;}
     const qf=document.getElementById('qrisFile')?.files?.[0];
