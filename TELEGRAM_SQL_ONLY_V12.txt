@@ -1,0 +1,29 @@
+WSID SMM PANEL V12 — TELEGRAM SQL-ONLY
+
+Tidak menggunakan Supabase Edge Function untuk notifikasi Telegram.
+
+FITUR
+- Notifikasi user baru terdaftar
+- Notifikasi setiap login user
+- Notifikasi deposit baru
+- Notifikasi perubahan status deposit
+- Notifikasi order baru
+- Notifikasi perubahan status order
+- Notifikasi perubahan saldo
+- Link menuju bot Telegram di setiap notifikasi jika username bot diisi
+- Admin Panel > Users: lihat semua user, saldo, login terakhir
+- Admin Panel > Users: tombol + Saldo dan - Saldo
+
+SETUP
+1. Jalankan UPDATE_TELEGRAM_MONITOR_SALDO_V12.sql di Supabase SQL Editor.
+2. Tidak perlu deploy Edge Function.
+3. Di Admin > Settings > Notifikasi Telegram isi Token Bot Telegram.
+4. Isi ID Telegram dengan ID grup/channel atau @username channel. Bot harus menjadi admin channel/grup.
+5. Isi Username Bot Telegram, misalnya UbotWSID (tanpa @ juga boleh).
+6. Simpan Settings.
+7. Untuk login notification, upload auth.js versi V12 agar setelah login berhasil website mencatat login_events.
+
+CATATAN
+- Notifikasi Telegram dikirim outbound melalui pg_net dari database.
+- /start tidak diperlukan untuk sistem notifikasi ini.
+- Tombol ACC/TOLAK di Telegram tidak disertakan pada versi ini, sesuai keputusan untuk tidak memakai bot polling/Edge. ACC deposit tetap dilakukan dari Admin Panel.

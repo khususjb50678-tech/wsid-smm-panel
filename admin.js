@@ -79,9 +79,20 @@ async function connection(){
 window.saveConnection=async()=>{const g=id=>document.getElementById(id);const existing=await sb.from('providers').select('id,api_key').eq('name','FAYUPEDIA').maybeSingle();const u=(await sb.auth.getUser()).data.user;const row={name:'FAYUPEDIA',base_url:g('pu').value.trim(),api_id:g('pi').value.trim(),api_key:g('pk').value||existing.data?.api_key||'',default_markup_type:g('pt').value,default_markup_value:Number(g('pv').value||0),is_active:g('pa').checked,updated_at:new Date().toISOString(),updated_by:u?.id||null};if(existing.data?.id)row.id=existing.data.id;const r=await sb.from('providers').upsert(row,{onConflict:'id'});if(r.error)return alert(r.error.message);alert('Pengaturan koneksi tersimpan.');draw()};
 window.testConnection=async()=>{const el=document.getElementById('pm');if(el)el.textContent='Menghubungkan...';const r=await edge({action:'balance'});if(el)el.textContent=r.balance!==undefined?`Koneksi berhasil • Saldo: ${r.balance}`:('Gagal: '+(r.msg||JSON.stringify(r)))};
 async function users(){
-  const r=await sb.from('profiles').select('id,full_name,email,role,created_at').order('created_at',{ascending:false});
-  return `<h1>Users</h1><div class="list">${(r.data||[]).map(x=>`<article><span><b>${esc(x.full_name)}</b><small>${esc(x.email)} • ${esc(x.role)}</small></span></article>`).join('')||'<div class="empty">Belum ada user.</div>'}</div>`;
+  const [r,w,l]=await Promise.all([
+    sb.from('profiles').select('id,full_name,email,role,created_at').order('created_at',{ascending:false}),
+    sb.from('wallets').select('user_id,balance'),
+    sb.from('login_events').select('user_id,created_at').order('created_at',{ascending:false}).limit(500)
+  ]);
+  if(r.error)throw r.error;
+  const balances=Object.fromEntries((w.data||[]).map(x=>[x.user_id,x.balance]));
+  const last={};(l.data||[]).forEach(x=>{if(!last[x.user_id])last[x.user_id]=x.created_at});
+  const rows=r.data||[];
+  return `<h1>Users</h1><div class="history-search"><input id="userSearch" placeholder="Cari nama atau email..." oninput="filterUsers(this.value)"></div><div class="list" id="userList">${rows.map(x=>`<article class="admin-user-card" data-search="${esc((x.full_name||'')+' '+(x.email||'')+' '+x.id)}"><span><b>${esc(x.full_name||'Member')}</b><small>${esc(x.email||'-')} • ${esc(x.role)}</small><small>Daftar: ${new Date(x.created_at).toLocaleString('id-ID')}</small><strong>Saldo: ${money(balances[x.id]||0)}</strong><small>${last[x.id]?'Login terakhir: '+new Date(last[x.id]).toLocaleString('id-ID'):'Belum ada catatan login'}</small></span><span class="row"><button class="btn mini red" onclick="adjustBalance('${x.id}','${esc(x.full_name||'Member')}',1)">+ Saldo</button><button class="btn mini" onclick="adjustBalance('${x.id}','${esc(x.full_name||'Member')}',-1)">− Saldo</button></span></article>`).join('')||'<div class="empty">Belum ada user.</div>'}</div>`;
 }
+window.filterUsers=q=>{const v=String(q||'').toLowerCase();document.querySelectorAll('#userList .admin-user-card').forEach(x=>x.style.display=(!v||x.dataset.search.toLowerCase().includes(v))?'':'none')};
+window.adjustBalance=async(id,name,dir)=>{const label=dir>0?'Tambah saldo':'Kurangi saldo';const raw=prompt(`${label} untuk ${name}\nMasukkan nominal tanpa titik/koma:`, '2000');if(raw===null)return;const amount=Number(String(raw).replace(/[^0-9.-]/g,''));if(!Number.isFinite(amount)||amount<=0)return alert('Nominal tidak valid.');const note=prompt('Keterangan (opsional):',label);const r=await sb.rpc('admin_adjust_balance',{p_user_id:id,p_amount:dir*amount,p_description:note||label});if(r.error)return alert(r.error.message);alert(`${label} berhasil. Saldo sekarang: ${money(r.data)}`);draw()};
+
 async function finance(){
   const w=await sb.from('wallets').select('balance'),o=await sb.from('orders').select('provider_cost,sale_total,profit');
   return `<h1>Keuangan</h1><div class="stats"><div><small>Saldo User</small><b>${money((w.data||[]).reduce((a,x)=>a+Number(x.balance),0))}</b></div><div><small>Biaya Dasar</small><b>${money((o.data||[]).reduce((a,x)=>a+Number(x.provider_cost),0))}</b></div><div><small>Profit</small><b>${money((o.data||[]).reduce((a,x)=>a+Number(x.profit),0))}</b></div></div>`;
@@ -101,14 +112,15 @@ async function settings(){
   <label>Instagram Support<input id=\"si\" value=\"${esc(v.support_instagram||'')}\"></label>
   <h3 class=\"settings-subtitle\">Notifikasi Telegram</h3>
   <label>Token Bot Telegram<input id="tb" type="text" value="${esc(v.telegram_bot_token||'')}" placeholder="Masukkan token bot Telegram"></label>
-  <label>ID Telegram<input id="tc" value="${esc(v.telegram_chat_id||'')}" placeholder="Contoh: 123456789"></label>
-  <small class="muted">Token hanya digunakan untuk notifikasi deposit dan hanya dapat diubah dari area Admin.</small>
+  <label>ID Telegram / Channel<input id="tc" value="${esc(v.telegram_chat_id||'')}" placeholder="Contoh: 123456789 atau @channel"></label>
+  <label>Username Bot Telegram<input id="tbu" value="${esc(v.telegram_bot_username||'')}" placeholder="Contoh: UbotWSID"></label>
+  <small class="muted">Token digunakan untuk notifikasi panel ke Telegram dan hanya dapat diubah dari area Admin. Pastikan bot sudah menjadi admin di channel/grup tujuan.</small>
   <div class=\"row\"><button class=\"btn red\" onclick=\"saveSettings()\">Simpan Settings</button><button class=\"btn\" onclick=\"testTelegram()\">Tes Telegram</button></div><p id=\"sm\" class=\"msg\"></p></section>`;
 }
 window.showQrisName=input=>{const f=input?.files?.[0],el=document.getElementById('qris-name');if(el)el.textContent=f?`File dipilih: ${f.name}`:'JPG, PNG atau WEBP • maksimal 2MB';};
 window.saveSettings=async()=>{
   try{
-    const map={panel_name:document.getElementById('sn').value,owner_name:document.getElementById('so').value,dana_number:document.getElementById('sd').value,dana_name:document.getElementById('sda').value,support_whatsapp:document.getElementById('sw').value,support_telegram:document.getElementById('st').value,support_instagram:document.getElementById('si').value,telegram_chat_id:document.getElementById('tc').value.trim()};
+    const map={panel_name:document.getElementById('sn').value,owner_name:document.getElementById('so').value,dana_number:document.getElementById('sd').value,dana_name:document.getElementById('sda').value,support_whatsapp:document.getElementById('sw').value,support_telegram:document.getElementById('st').value,support_instagram:document.getElementById('si').value,telegram_chat_id:document.getElementById('tc').value.trim(),telegram_bot_username:document.getElementById('tbu').value.trim()};
     const telegramToken=document.getElementById('tb')?.value.trim(); const telegramChat=document.getElementById('tc')?.value.trim();
     if(telegramToken||telegramChat){const meTelegram=(await sb.auth.getUser()).data.user?.id||null;const tg=await sb.from('telegram_config').upsert({id:1,bot_token:telegramToken||null,chat_id:telegramChat||null,updated_by:meTelegram,updated_at:new Date().toISOString()},{onConflict:'id'});if(tg.error)throw tg.error;}
     const qf=document.getElementById('qrisFile')?.files?.[0];

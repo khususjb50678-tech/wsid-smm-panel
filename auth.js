@@ -43,6 +43,11 @@ document.getElementById('f')?.addEventListener('submit',async ev=>{
     const r=await sb.auth.signInWithPassword({email,password});
     if(r.error)throw r.error;
 
+    try{
+      const u=r.data?.user;
+      if(u) await sb.from('login_events').insert({user_id:u.id,email:u.email||email,full_name:u.user_metadata?.full_name||'Member'});
+    }catch(logErr){ console.warn('Login notification log gagal:',logErr); }
+
     say('Login berhasil. Membuka dashboard...');
     location.replace('index.html');
   }catch(e){

@@ -19,3 +19,7 @@ select{width:100%;padding:12px;background:#080d13;border:1px solid #26333f;borde
 .proof-preview{width:100%;display:grid;place-items:center;margin-top:10px}.proof-preview-img{display:block;max-width:100%;max-height:280px;border-radius:12px;object-fit:contain;border:1px solid #293744;background:#05080c}.proof-preview-name{display:block!important;color:#ff7180!important;margin-top:7px!important;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.proof-upload{overflow:hidden}
 
 .admin-proof-thumb{display:block;width:88px;height:88px;object-fit:cover;border-radius:10px;border:1px solid #2b3a48;background:#05080c;margin-top:8px}
+.admin-user-card{display:flex;justify-content:space-between;gap:14px;align-items:center}
+.admin-user-card>span:first-child{display:grid;gap:4px;min-width:0}
+.admin-user-card>span:last-child{flex-wrap:wrap;justify-content:flex-end}
+.admin-user-card strong{font-size:15px}
