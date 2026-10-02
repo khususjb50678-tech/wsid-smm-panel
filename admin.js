@@ -177,7 +177,6 @@ window.saveSettings=async()=>{
     const map={panel_name:val('sn'),owner_name:val('so'),dana_number:val('sd'),dana_name:val('sda'),gopay_number:val('sg'),gopay_name:val('sga'),deposit_fee_percent:val('sdp'),support_whatsapp:val('sw'),support_telegram:val('st'),support_instagram:val('si'),developer_name:val('sdn'),developer_bio:val('sdb'),telegram_chat_id:val('tc').trim(),telegram_notify_chat_id:val('tnc').trim(),telegram_bot_username:val('tbu').trim(),monitoring_website_url:val('mwu').trim()};
     const telegramToken=document.getElementById('tb')?.value.trim(); const telegramChat=document.getElementById('tc')?.value.trim();
     if(telegramToken||telegramChat){const meTelegram=(await sb.auth.getUser()).data.user?.id||null;const tg=await sb.from('telegram_config').upsert({id:1,bot_token:telegramToken||null,chat_id:telegramChat||null,updated_by:meTelegram,updated_at:new Date().toISOString()},{onConflict:'id'});if(tg.error)throw tg.error;}
-    if(/^\d+$/.test(val('tc').trim()))map.telegram_personal_chat_id=val('tc').trim();
     const qf=document.getElementById('qrisFile')?.files?.[0];
     const df=document.getElementById('developerFile')?.files?.[0];
     const dlf=document.getElementById('danaLogoFile')?.files?.[0];
@@ -216,16 +215,17 @@ window.saveSettings=async()=>{
   }catch(e){alert(e?.message||'Gagal menyimpan settings.');}
 };
 window.testTelegram=async()=>{
-  const chat=document.getElementById('tc')?.value.trim()||document.getElementById('tnc')?.value.trim();
+  // TEST WAJIB dikirim ke ID admin pribadi (tc), bukan channel/grup (tnc).
+  const chat=document.getElementById('tc')?.value.trim();
   const token=document.getElementById('tb')?.value.trim();
   if(!token)return alert('Isi Token Bot Telegram dulu.');
-  if(!chat)return alert('Isi ID Telegram dulu.');
+  if(!chat)return alert('Isi ID Telegram Admin / Test dulu.');
   const me=(await sb.auth.getUser()).data.user?.id||null;
   const save=await sb.from('telegram_config').upsert({id:1,bot_token:token,chat_id:chat,updated_by:me,updated_at:new Date().toISOString()},{onConflict:'id'});
   if(save.error)return alert(save.error.message);
   const r=await sb.rpc('test_telegram_deposit_notification');
   if(r.error)return alert(r.error.message);
-  alert(r.data?.msg||'Notifikasi Telegram dikirim.');
+  alert(r.data?.msg||'Notifikasi Telegram dikirim ke ID admin.');
 };
 
 async function updateDepositNotification(showToast=true){
