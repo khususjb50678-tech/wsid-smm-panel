@@ -1,0 +1,35 @@
+WSID SMM PANEL - TUTORIAL FIX RESET
+
+Karena database WSID kamu SUDAH ADA, jangan jalankan schema.sql atau file setup lama lagi.
+
+LANGKAH DI HP:
+1. Buka Supabase.
+2. Masuk ke SQL Editor.
+3. Tekan New Query.
+4. Buka file FIX_RESET.sql dari ZIP ini.
+5. Salin SEMUA isi FIX_RESET.sql.
+6. Tempel ke SQL Editor.
+7. Tekan Run.
+8. Pastikan muncul pesan berhasil / tidak ada error.
+9. Kembali ke Admin WSID SMM Panel.
+10. Refresh halaman.
+11. Masuk menu Reset.
+12. Coba salah satu reset.
+
+RESET YANG DIPERBAIKI:
+- Reset Profit
+- Reset Saldo User
+- Reset Riwayat Order
+- Reset Riwayat Deposit
+- Reset Transaksi
+- Reset Aktivitas Login
+- Reset Semua Data Aktivitas
+
+PENTING:
+- Akun/profiles user TIDAK dihapus.
+- Reset saldo hanya mengubah wallet menjadi Rp0.
+- Reset profit hanya mengubah profit order menjadi Rp0.
+- Reset riwayat menghapus data riwayat sesuai tombol yang dipilih.
+- Reset Semua Data Aktivitas menghapus order, deposit, transaksi, login dan mengosongkan saldo.
+
+Kalau muncul error lagi, kirim screenshot bagian error paling bawah.

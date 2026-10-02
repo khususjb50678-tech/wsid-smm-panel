@@ -272,20 +272,32 @@ async function orders(){
   }
 }
 
+function paymentLogo(type,label){
+  const cls=String(type||'').toLowerCase();
+  return `<button class="payment-logo ${cls}" onclick="showPayment('${esc(type)}')" aria-label="${esc(label)}"><span>${esc(label)}</span></button>`;
+}
+window.showPayment=type=>{
+  const box=document.getElementById('payment-detail'); if(!box)return;
+  const t=String(type||'').toLowerCase();
+  if(t==='qris'){
+    const img=setting('qris_image_url');
+    box.innerHTML=img?`<div class="payment-detail-head"><b>QRIS</b><small>Scan QRIS untuk pembayaran.</small></div><img class="payment-qris" src="${esc(img)}" alt="QRIS"><small class="payment-note">Gunakan aplikasi pembayaran yang mendukung QRIS.</small>`:`<div class="empty">QRIS belum diatur oleh admin.</div>`;
+  }else{
+    const isGo=t==='gopay', name=isGo?setting('gopay_name',setting('owner_name','Witama Store.ID')):setting('dana_name',setting('owner_name','Witama Store.ID'));
+    const num=isGo?setting('gopay_number','Nomor belum diatur'):setting('dana_number','Nomor belum diatur');
+    box.innerHTML=`<div class="payment-detail-head"><b>${isGo?'GoPay':'DANA'}</b><small>${esc(name)}</small></div><div class="payment-number"><strong>${esc(num)}</strong><button class="btn" onclick="navigator.clipboard?.writeText(${JSON.stringify(num)});alert('Nomor disalin')">Salin</button></div><small class="payment-note">Transfer sesuai nominal yang kamu masukkan.</small>`;
+  }
+};
 function deposit(){
-  return `<div class="head"><h1>Deposit Saldo</h1><small>Transfer manual ke DANA, lalu kirim bukti pembayaran.</small></div>
+  return `<div class="head"><h1>Deposit Saldo</h1><small>Pilih metode pembayaran, lalu kirim bukti pembayaran.</small></div>
   <section class="deposit-hero">
-    <div class="deposit-title"><span class="deposit-icon">D</span><div><b>Tambah Saldo</b><small>Saldo masuk setelah admin melakukan ACC.</small></div></div>
-    <div class="deposit-steps"><span><i>1</i> Transfer</span><span><i>2</i> Upload bukti</span><span><i>3</i> Tunggu ACC admin</span></div>
+    <div class="deposit-title"><span class="deposit-icon">Rp</span><div><b>Tambah Saldo</b><small>Saldo masuk setelah admin melakukan ACC.</small></div></div>
+    <div class="deposit-steps"><span><i>1</i> Pilih pembayaran</span><span><i>2</i> Upload bukti</span><span><i>3</i> Tunggu ACC admin</span></div>
   </section>
   <section class="deposit-card">
     <div class="section-label">Pembayaran</div>
-    <div class="dana-box">
-      <div class="dana-logo">DANA</div>
-      <div class="dana-info"><b>${esc(setting('dana_name',setting('owner_name','Witama Store.ID')))}</b><strong>${esc(setting('dana_number','Nomor belum diatur'))}</strong><small>Transfer sesuai nominal yang kamu masukkan.</small></div>
-      <button class="btn" onclick="navigator.clipboard?.writeText(setting('dana_number',''));alert('Nomor DANA disalin')">Salin</button>
-    </div>
-    ${setting('qris_image_url')?`<div class=\"qris-wrap\"><img src=\"${esc(setting('qris_image_url'))}\" alt=\"QRIS\"><small>Scan QRIS untuk pembayaran.</small></div>`:''}
+    <div class="payment-logos">${paymentLogo('dana','DANA')}${paymentLogo('gopay','GoPay')}${paymentLogo('qris','QRIS')}</div>
+    <div id="payment-detail" class="payment-detail"></div>
   </section>
   <section class="deposit-card">
     <div class="section-label">Nominal Deposit</div>
@@ -323,10 +335,19 @@ window.sendDeposit=async()=>{
 };
 
 async function profile(){
+  const devName=setting('developer_name','Witama Yuliananta');
+  const devBio=setting('developer_bio','Developer dan pembuat WSID SMM PANEL. Website ini dikembangkan dan dikelola untuk kebutuhan Witama Store.ID.');
+  const devLogo=setting('developer_logo_url','');
+  const wa=setting('support_whatsapp',''), tg=setting('support_telegram','');
   return `<div class="head"><h1>Profil</h1></div>
   <section class="card center"><div class="avatar">${esc((S.profile?.full_name||'W')[0])}</div>
     <h2>${esc(S.profile?.full_name||'Member')}</h2><small>${esc(S.user.email||'')}</small>
     <p>Saldo <b>${money(S.wallet?.balance)}</b></p></section>
+  <section class="developer-card">
+    <div class="developer-title">${devLogo?`<img src="${esc(devLogo)}" alt="Developer">`:'<div class="developer-logo">W</div>'}<div><small>DEVELOPER WEBSITE</small><h2>${esc(devName)}</h2></div></div>
+    <p>${esc(devBio)}</p>
+    <div class="contact-logos">${wa?`<a class="contact-logo whatsapp" href="${esc(wa)}" target="_blank" rel="noopener" aria-label="WhatsApp"><span>WA</span></a>`:''}${tg?`<a class="contact-logo telegram" href="${esc(tg)}" target="_blank" rel="noopener" aria-label="Telegram"><span>TG</span></a>`:''}</div>
+  </section>
   <div class="menus"><button onclick="logout()"><strong>↪</strong><span><b>Keluar</b><small>Keluar akun.</small></span>›</button></div>`;
 }
 async function render(){
@@ -337,6 +358,7 @@ async function render(){
       S.page==='profile'?await profile():
       await orders();
     appEl().innerHTML=shell(c);
+    if(S.page==='deposit') setTimeout(()=>showPayment('dana'),0);
   }catch(e){
     console.error('Render error:',e);
     showFatal('Tampilan gagal dimuat',e?.message||'Terjadi kesalahan saat menampilkan dashboard.');

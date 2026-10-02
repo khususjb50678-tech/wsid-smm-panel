@@ -1,0 +1,24 @@
+WSID SMM PANEL - PEMBAYARAN & DEVELOPER
+
+1. Upload semua file HTML/JS/CSS ke GitHub Pages seperti biasa.
+2. Jangan jalankan schema.sql jika database sudah pernah dibuat.
+3. Masuk Admin > Settings.
+4. Bagian Pembayaran:
+   - Isi Nomor DANA dan Nama DANA.
+   - Isi Nomor GoPay dan Nama GoPay.
+   - Upload foto QRIS.
+5. Bagian Developer:
+   - Isi Nama Developer.
+   - Isi Deskripsi Developer.
+   - Upload Logo Developer.
+6. Bagian Branding & Kontak:
+   - Isi WhatsApp Support dan Telegram Support dengan link tujuan.
+   - Di halaman Profil user, kontak hanya tampil sebagai logo WA dan TG. Saat diklik akan membuka link tersebut.
+7. User > Deposit:
+   - DANA, GoPay, dan QRIS tampil sebagai logo berjejer.
+   - Klik logo DANA untuk melihat nomor DANA.
+   - Klik logo GoPay untuk melihat nomor GoPay.
+   - Klik logo QRIS untuk melihat QRIS.
+8. User > Profil:
+   - Kartu Developer tampil di bawah data profil.
+   - Nama, logo, deskripsi, dan kontak diambil dari Settings Admin.

@@ -146,12 +146,14 @@ async function settings(){
   <div class=\"row\"><button class=\"btn red\" onclick=\"saveSettings()\">Simpan Settings</button><button class=\"btn\" onclick=\"testTelegram()\">Tes Telegram</button></div><p id=\"sm\" class=\"msg\"></p></section>`;
 }
 window.showQrisName=input=>{const f=input?.files?.[0],el=document.getElementById('qris-name');if(el)el.textContent=f?`File dipilih: ${f.name}`:'JPG, PNG atau WEBP • maksimal 2MB';};
+window.showDeveloperName=input=>{const f=input?.files?.[0],el=document.getElementById('developer-name');if(el)el.textContent=f?`File dipilih: ${f.name}`:'JPG, PNG atau WEBP • maksimal 2MB';};
 window.saveSettings=async()=>{
   try{
-    const map={panel_name:document.getElementById('sn').value,owner_name:document.getElementById('so').value,dana_number:document.getElementById('sd').value,dana_name:document.getElementById('sda').value,support_whatsapp:document.getElementById('sw').value,support_telegram:document.getElementById('st').value,support_instagram:document.getElementById('si').value,telegram_chat_id:document.getElementById('tc').value.trim(),telegram_notify_chat_id:document.getElementById('tnc').value.trim(),telegram_bot_username:document.getElementById('tbu').value.trim()};
+    const map={panel_name:document.getElementById('sn').value,owner_name:document.getElementById('so').value,dana_number:document.getElementById('sd').value,dana_name:document.getElementById('sda').value,gopay_number:document.getElementById('sg').value,gopay_name:document.getElementById('sga').value,support_whatsapp:document.getElementById('sw').value,support_telegram:document.getElementById('st').value,support_instagram:document.getElementById('si').value,developer_name:document.getElementById('sdn').value,developer_bio:document.getElementById('sdb').value,telegram_chat_id:document.getElementById('tc').value.trim(),telegram_notify_chat_id:document.getElementById('tnc').value.trim(),telegram_bot_username:document.getElementById('tbu').value.trim()};
     const telegramToken=document.getElementById('tb')?.value.trim(); const telegramChat=document.getElementById('tc')?.value.trim();
     if(telegramToken||telegramChat){const meTelegram=(await sb.auth.getUser()).data.user?.id||null;const tg=await sb.from('telegram_config').upsert({id:1,bot_token:telegramToken||null,chat_id:telegramChat||null,updated_by:meTelegram,updated_at:new Date().toISOString()},{onConflict:'id'});if(tg.error)throw tg.error;}
     const qf=document.getElementById('qrisFile')?.files?.[0];
+    const df=document.getElementById('developerFile')?.files?.[0];
     if(qf){
       if(qf.size>2*1024*1024)return alert('Ukuran QRIS maksimal 2MB.');
       const path=`qris/${Date.now()}-${qf.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
@@ -159,6 +161,14 @@ window.saveSettings=async()=>{
       if(u.error)throw u.error;
       const pub=sb.storage.from('panel-assets').getPublicUrl(path);
       map.qris_image_url=pub.data.publicUrl;
+    }
+    if(df){
+      if(df.size>2*1024*1024)return alert('Ukuran logo developer maksimal 2MB.');
+      const path=`developer/${Date.now()}-${df.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
+      const u=await sb.storage.from('panel-assets').upload(path,df,{upsert:false,contentType:df.type});
+      if(u.error)throw u.error;
+      const pub=sb.storage.from('panel-assets').getPublicUrl(path);
+      map.developer_logo_url=pub.data.publicUrl;
     }
     const rows=Object.entries(map).map(([key,value])=>({key,value,updated_by:null,updated_at:new Date().toISOString()}));
     const me=(await sb.auth.getUser()).data.user;rows.forEach(x=>x.updated_by=me?.id||null);
