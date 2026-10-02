@@ -1,1 +1,57 @@
-<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#07090d"><title>WSID SMM PANEL</title><link rel="icon" href="favicon.svg"><link rel="stylesheet" href="style.css"></head><body><div id="app"></div><script src="config.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase.js?v=2"></script><script src="app.js?v=2"></script></body></html>
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#07090d">
+<title>WSID SMM PANEL</title>
+<link rel="icon" href="favicon.svg">
+<link rel="stylesheet" href="style.css?v=20261002">
+</head>
+<body>
+<div id="app">
+  <main class="auth">
+    <section class="card">
+      <div class="brand"><i>W</i><b>WSID<small>SMM PANEL</small></b></div>
+      <p class="muted">Memuat dashboard...</p>
+    </section>
+  </main>
+</div>
+
+<script>
+(function(){
+  window.__WSID_BOOT_OK=false;
+  window.__WSID_BOOT_TIMER=setTimeout(function(){
+    if(window.__WSID_BOOT_OK)return;
+    var el=document.getElementById('app');
+    if(!el)return;
+    el.innerHTML='<main class="auth"><section class="card">'+
+      '<div class="brand"><i>W</i><b>WSID<small>SMM PANEL</small></b></div>'+
+      '<h1>Gagal memuat</h1>'+
+      '<p class="msg">JavaScript dashboard tidak berhasil dijalankan. Kemungkinan file GitHub Pages masih memakai versi lama atau ada file yang belum ter-upload.</p>'+
+      '<button class="btn red wide" onclick="location.reload()">Muat Ulang</button>'+
+      '<p class="muted">Jika pesan ini muncul, pastikan semua file ZIP sudah di-upload ke ROOT repository.</p>'+
+      '</section></main>';
+  },7000);
+
+  window.addEventListener('error',function(e){
+    if(window.__WSID_BOOT_OK)return;
+    var el=document.getElementById('app');
+    if(!el)return;
+    var msg=(e && (e.message || (e.error && e.error.message))) || 'Kesalahan JavaScript.';
+    el.innerHTML='<main class="auth"><section class="card">'+
+      '<div class="brand"><i>W</i><b>WSID<small>SMM PANEL</small></b></div>'+
+      '<h1>Dashboard Error</h1>'+
+      '<p class="msg">'+String(msg).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})+'</p>'+
+      '<button class="btn red wide" onclick="location.reload()">Muat Ulang</button>'+
+      '</section></main>';
+  });
+})();
+</script>
+
+<script src="config.js?v=20261002"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="this.onerror=null;this.src='https://unpkg.com/@supabase/supabase-js@2';"></script>
+<script src="supabase.js?v=20261002"></script>
+<script src="app.js?v=20261002"></script>
+</body>
+</html>

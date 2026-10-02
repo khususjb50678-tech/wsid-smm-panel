@@ -52,7 +52,9 @@ async function init(){
 
     S.user=q.data.session.user;
     await load();
-    render();
+    await render();
+    window.__WSID_BOOT_OK=true;
+    clearTimeout(window.__WSID_BOOT_TIMER);
   }catch(e){
     console.error('Dashboard init error:',e);
     showFatal('Dashboard gagal dimuat',e?.message||'Terjadi kesalahan saat memuat dashboard.');
@@ -302,7 +304,7 @@ POST /api/refill/status</pre>
   <p>Autentikasi memakai <b>api_id</b> dan <b>api_key</b>. API key user dikelola di backend.</p></section>`;
 }
 
-async function render(){
+async async function render(){
   try{
     let c=S.page==='home'?home():
       S.page==='order'?order():
