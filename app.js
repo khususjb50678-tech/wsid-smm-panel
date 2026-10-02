@@ -1,5 +1,6 @@
 const C=window.WSID_CONFIG||{};
-const S={page:'home',user:null,profile:null,wallet:{balance:0},services:[]};
+const S={page:'home',user:null,profile:null,wallet:{balance:0},services:[],settings:{}};
+const setting=(k,f='')=>S.settings?.[k]??f;
 
 const money=n=>new Intl.NumberFormat('id-ID',{
   style:'currency',currency:'IDR',maximumFractionDigits:0
@@ -16,7 +17,7 @@ function showFatal(title,msg){
   if(!el)return;
   el.innerHTML=`<main class="auth">
     <section class="card">
-      <div class="brand"><i>W</i><b>WSID<small>SMM PANEL</small></b></div>
+      <div class="brand"><i>W</i><b>${esc(setting('panel_name','WSID SMM PANEL'))}<small>${esc(setting('owner_name','Witama Store.ID'))}</small></b></div>
       <h1>${esc(title)}</h1>
       <p class="msg">${esc(msg)}</p>
       <button class="btn red wide" onclick="location.reload()">Muat Ulang</button>
@@ -31,7 +32,7 @@ async function init(){
 
   el.innerHTML=`<main class="auth">
     <section class="card">
-      <div class="brand"><i>W</i><b>WSID<small>SMM PANEL</small></b></div>
+      <div class="brand"><i>W</i><b>${esc(setting('panel_name','WSID SMM PANEL'))}<small>${esc(setting('owner_name','Witama Store.ID'))}</small></b></div>
       <p class="muted">Memuat dashboard...</p>
     </section>
   </main>`;
@@ -82,6 +83,11 @@ async function load(){
   }
 
   try{
+    const ps=await sb.from('panel_settings').select('key,value');
+    if(!ps.error)(ps.data||[]).forEach(x=>S.settings[x.key]=x.value);
+  }catch(e){console.warn('Settings load:',e);}
+
+  try{
     let v=await sb.from('services')
       .select('*,categories(name)')
       .eq('is_active',true)
@@ -109,7 +115,7 @@ function nav(p){S.page=p;render();}
 function shell(c){
   return `<div class="shell">
     <header>
-      <div class="brand"><i>W</i><b>WSID<small>SMM PANEL</small></b></div>
+      <div class="brand"><i>W</i><b>${esc(setting('panel_name','WSID SMM PANEL'))}<small>${esc(setting('owner_name','Witama Store.ID'))}</small></b></div>
       <span class="user">${esc(S.profile?.full_name||'Member')} <button onclick="logout()">⋮</button></span>
     </header>
     <main>${c}</main>
@@ -134,7 +140,7 @@ function home(){
     <div><small>Pending</small><b>-</b></div>
     <div><small>Total Profit</small><b>Rp 0</b></div>
   </div>
-  <div class="banner"><b>WSID SMM PANEL</b><span>Solusi terbaik untuk kebutuhan sosial media Anda</span><small>Cepat • Aman • Terpercaya</small></div>
+  <div class="banner"><b>${esc(setting('panel_name','WSID SMM PANEL'))}</b><span>Solusi terbaik untuk kebutuhan sosial media Anda</span><small>Cepat • Aman • Terpercaya</small></div>
   <h2>Provider Populer</h2>
   <div class="grid2">${['TikTok','Instagram','YouTube','Facebook'].map(x=>`<button onclick="nav('order')"><b>${x}</b><small>Layanan ${x}</small></button>`).join('')}</div>
   <div class="balance"><span>Saldo Anda<br><b>${money(S.wallet?.balance)}</b></span><button class="btn red" onclick="nav('deposit')">Deposit</button></div>
@@ -249,10 +255,10 @@ async function orders(){
 function deposit(){
   return `<div class="head"><h1>Deposit Saldo</h1><small>Transfer manual lalu upload bukti.</small></div>
   <section class="card"><div class="pay">
-    <b>Bayar ke DANA</b><span>${esc(C.DANA_NAME||'Witama Store.ID')}</span>
-    <strong>${esc(C.DANA_NUMBER||'Nomor belum diatur')}</strong>
-    <button class="btn" onclick="navigator.clipboard?.writeText(C.DANA_NUMBER||'')">Salin</button>
-    ${C.QRIS_IMAGE_URL?`<img src="${esc(C.QRIS_IMAGE_URL)}" alt="QRIS">`:''}
+    <b>Bayar ke DANA</b><span>${esc(setting('dana_name',setting('owner_name','Witama Store.ID')))}</span>
+    <strong>${esc(setting('dana_number','Nomor belum diatur'))}</strong>
+    <button class="btn" onclick="navigator.clipboard?.writeText(setting('dana_number',''))">Salin</button>
+    ${setting('qris_image_url')?`<img src="${esc(setting('qris_image_url'))}" alt="QRIS">`:''}
   </div>
   <label>Nominal<input id="da" type="number" min="1000" placeholder="50000"></label>
   <label>Bukti<input id="df" type="file" accept="image/*"></label>
@@ -281,27 +287,24 @@ window.sendDeposit=async()=>{
 };
 
 async function profile(){
+  const api= S.profile?.api_id ? `<section class="card"><h3>API Saya</h3><p><b>API ID</b></p><pre>${esc(S.profile.api_id)}</pre><p><b>API Key</b></p><pre>${S.profile.api_key_last4?`••••••••${esc(S.profile.api_key_last4)}`:'Belum dibuat'}</pre><small class="muted">Untuk keamanan, API key lengkap hanya ditampilkan saat admin membuat/reset key.</small></section>` : `<section class="card"><b>API belum dibuat</b><p class="muted">Hubungi admin untuk membuat API ID dan API Key.</p></section>`;
   return `<div class="head"><h1>Profil</h1></div>
   <section class="card center"><div class="avatar">${esc((S.profile?.full_name||'W')[0])}</div>
-    <h2>${esc(S.profile?.full_name||'Member')}</h2>
-    <small>${esc(S.user.email||'')}</small>
-    <p>Saldo <b>${money(S.wallet?.balance)}</b></p>
-  </section>
-  <div class="menus">
-    <button onclick="nav('docs')"><strong>▤</strong><span><b>Docs API</b><small>API WSID tanpa nama provider.</small></span>›</button>
-    <button onclick="logout()"><strong>↪</strong><span><b>Keluar</b><small>Keluar akun.</small></span>›</button>
-  </div>`;
+    <h2>${esc(S.profile?.full_name||'Member')}</h2><small>${esc(S.user.email||'')}</small>
+    <p>Saldo <b>${money(S.wallet?.balance)}</b></p></section>${api}
+  <div class="menus"><button onclick="nav('docs')"><strong>▤</strong><span><b>Docs API</b><small>Dokumentasi API WSID.</small></span>›</button><button onclick="logout()"><strong>↪</strong><span><b>Keluar</b><small>Keluar akun.</small></span>›</button></div>`;
 }
 
 function docs(){
-  return `<div class="head"><h1>Docs API</h1><small>API WSID SMM PANEL</small></div>
-  <section class="card"><p>API ini dibuat mirip pola API SMM umum, tetapi dokumentasi publik tidak menyebut nama provider internal.</p>
-  <h3>Endpoint</h3><pre>POST /api/services
-POST /api/order
-POST /api/status
-POST /api/refill
-POST /api/refill/status</pre>
-  <p>Autentikasi memakai <b>api_id</b> dan <b>api_key</b>. API key user dikelola di backend.</p></section>`;
+  const endpoint=`${C.SUPABASE_URL}/functions/v1/wsid-api`;
+  return `<div class="head"><h1>Docs API</h1><small>${esc(setting('panel_name','WSID SMM PANEL'))}</small></div>
+  <section class="card"><p>API publik untuk integrasi layanan panel.</p><h3>Endpoint</h3><pre>${esc(endpoint)}</pre><h3>Autentikasi</h3><pre>api_id=YOUR_API_ID
+api_key=YOUR_API_KEY</pre><h3>Services</h3><pre>POST ${esc(endpoint)}
+{"api_id":"YOUR_API_ID","api_key":"YOUR_API_KEY","action":"services"}</pre><h3>Order</h3><pre>POST ${esc(endpoint)}
+{"api_id":"YOUR_API_ID","api_key":"YOUR_API_KEY","action":"order","service":"SERVICE_ID","target":"@username","quantity":1000}</pre><h3>Status</h3><pre>POST ${esc(endpoint)}
+{"api_id":"YOUR_API_ID","api_key":"YOUR_API_KEY","action":"status","id":"ORDER_ID"}</pre><h3>Refill</h3><pre>POST ${esc(endpoint)}
+{"api_id":"YOUR_API_ID","api_key":"YOUR_API_KEY","action":"refill","id":"ORDER_ID"}</pre><h3>Refill Status</h3><pre>POST ${esc(endpoint)}
+{"api_id":"YOUR_API_ID","api_key":"YOUR_API_KEY","action":"refill_status","id":"ORDER_ID"}</pre></section>`;
 }
 
 async function render(){
