@@ -215,17 +215,22 @@ window.saveSettings=async()=>{
   }catch(e){alert(e?.message||'Gagal menyimpan settings.');}
 };
 window.testTelegram=async()=>{
-  // TEST WAJIB dikirim ke ID admin pribadi (tc), bukan channel/grup (tnc).
-  const chat=document.getElementById('tc')?.value.trim();
+  // TEST dikirim ke DUA tujuan: admin/pribadi (tc) DAN grup/channel (tnc).
+  const adminChat=document.getElementById('tc')?.value.trim();
+  const groupChat=document.getElementById('tnc')?.value.trim();
   const token=document.getElementById('tb')?.value.trim();
   if(!token)return alert('Isi Token Bot Telegram dulu.');
-  if(!chat)return alert('Isi ID Telegram Admin / Test dulu.');
+  if(!adminChat && !groupChat)return alert('Isi minimal ID Telegram Admin / Test atau Channel / Grup Notifikasi.');
   const me=(await sb.auth.getUser()).data.user?.id||null;
-  const save=await sb.from('telegram_config').upsert({id:1,bot_token:token,chat_id:chat,updated_by:me,updated_at:new Date().toISOString()},{onConflict:'id'});
+  const rows={id:1,bot_token:token,chat_id:adminChat||null,updated_by:me,updated_at:new Date().toISOString()};
+  const save=await sb.from('telegram_config').upsert(rows,{onConflict:'id'});
   if(save.error)return alert(save.error.message);
+  const setting=await sb.from('panel_settings').upsert({key:'telegram_notify_chat_id',value:groupChat||'',updated_by:me,updated_at:new Date().toISOString()},{onConflict:'key'});
+  if(setting.error)return alert(setting.error.message);
   const r=await sb.rpc('test_telegram_deposit_notification');
   if(r.error)return alert(r.error.message);
-  alert(r.data?.msg||'Notifikasi Telegram dikirim ke ID admin.');
+  const d=r.data||{};
+  alert(d.msg||'Tes Telegram selesai.');
 };
 
 async function updateDepositNotification(showToast=true){
