@@ -1,0 +1,17 @@
+WSID SMM PANEL - TELEGRAM NOTIF DEPOSIT (SQL ONLY)
+
+1. Buka Supabase > SQL Editor.
+2. Jalankan RUN_TANPA_EDGE.sql.
+3. Buat bot Telegram dengan BotFather dan dapatkan BOT TOKEN.
+4. Jalankan SQL berikut di Supabase SQL Editor (JANGAN di GitHub):
+
+   select vault.create_secret('TOKEN_BOT_TELEGRAM', 'ISI_BOT_TOKEN', 'WSID Telegram deposit notification');
+
+5. Isi Telegram Chat ID admin melalui Admin > Settings > Telegram Chat ID.
+6. User mengajukan deposit -> Telegram admin otomatis menerima notifikasi.
+
+Catatan:
+- Tidak perlu Edge Function untuk notifikasi Telegram.
+- Token disimpan di Supabase Vault.
+- ACC/Tolak tetap dilakukan dari Admin Panel.
+- Jangan menaruh BOT TOKEN asli di config.js, GitHub, atau file frontend.

@@ -18,6 +18,11 @@ create table if not exists public.wallets(user_id uuid primary key references pu
 create table if not exists public.categories(id uuid primary key default gen_random_uuid(),name text unique not null,slug text unique not null,is_active boolean default true,sort_order int default 0);
 create table if not exists public.services(id uuid primary key default gen_random_uuid(),provider_service_id text unique not null,name text not null,type text default 'default',category_id uuid references public.categories(id),category text,provider_price numeric(14,4) default 0,markup_type text default 'percent' check(markup_type in ('percent','fixed')),markup_value numeric(14,4) default 0,sale_price numeric(14,4) default 0,min_qty bigint default 1,max_qty bigint default 1,refill boolean default false,description text,is_active boolean default true,sort_order int default 0,updated_at timestamptz default now());
 create table if not exists public.deposits(id uuid primary key default gen_random_uuid(),user_id uuid references public.profiles(id) on delete cascade,amount numeric(14,2) not null,proof_path text,status text default 'pending' check(status in ('pending','approved','rejected')),reviewed_by uuid references public.profiles(id),reviewed_at timestamptz,created_at timestamptz default now());
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname='deposits_amount_min_check') then
+    alter table public.deposits add constraint deposits_amount_min_check check (amount >= 2000);
+  end if;
+end $$;
 create table if not exists public.orders(id uuid primary key default gen_random_uuid(),user_id uuid references public.profiles(id) on delete cascade,service_id uuid references public.services(id),target text not null,quantity bigint not null,comments text,sale_total numeric(14,2) not null,provider_cost numeric(14,2) not null,profit numeric(14,2) not null,provider_order_id text,provider_status text,status text default 'pending',error_message text,created_at timestamptz default now(),updated_at timestamptz default now());
 alter table public.orders add column if not exists comments text;
 create table if not exists public.transactions(id uuid primary key default gen_random_uuid(),user_id uuid references public.profiles(id) on delete set null,type text not null,amount numeric(14,2) not null,reference_id uuid,description text,created_at timestamptz default now());
@@ -120,7 +125,7 @@ create or replace function public.review_deposit(p_deposit_id uuid,p_approve boo
 
 -- Default public settings. Change these from Admin > Settings later.
 insert into public.panel_settings(key,value) values
-('panel_name','WSID SMM PANEL'),('owner_name','Witama Store.ID'),('dana_number',''),('dana_name','Witama Store.ID'),('qris_image_url',''),('support_whatsapp',''),('support_telegram',''),('support_instagram',''),('api_enabled','true')
+('panel_name','WSID SMM PANEL'),('owner_name','Witama Store.ID'),('dana_number',''),('dana_name','Witama Store.ID'),('qris_image_url',''),('support_whatsapp',''),('support_telegram',''),('support_instagram',''),('telegram_chat_id',''),('api_enabled','true')
 on conflict(key) do nothing;
 
 insert into public.providers(name,base_url,default_markup_type,default_markup_value,is_active)
@@ -142,3 +147,25 @@ update public.profiles set role='admin' where lower(email)='witamatama411@gmail.
 
 grant execute on all functions in schema public to authenticated, anon, service_role;
 notify pgrst, 'reload schema';
+
+
+-- Storage untuk bukti deposit. Bucket privat; user hanya boleh upload ke folder miliknya.
+insert into storage.buckets (id,name,public)
+values ('deposit-proofs','deposit-proofs',false)
+on conflict (id) do nothing;
+
+drop policy if exists deposit_proofs_insert on storage.objects;
+create policy deposit_proofs_insert on storage.objects
+for insert to authenticated
+with check (
+  bucket_id='deposit-proofs'
+  and (storage.foldername(name))[1]=auth.uid()::text
+);
+
+drop policy if exists deposit_proofs_read on storage.objects;
+create policy deposit_proofs_read on storage.objects
+for select to authenticated
+using (
+  bucket_id='deposit-proofs'
+  and ((storage.foldername(name))[1]=auth.uid()::text or public.is_admin())
+);

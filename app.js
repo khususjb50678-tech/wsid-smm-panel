@@ -10,6 +10,18 @@ const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({
   '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
 }[c]));
 
+// Bersihkan deskripsi layanan dari HTML agar tidak tampil sebagai tag mentah.
+const cleanText=x=>{
+  let raw=String(x??'')
+    .replace(/<br\s*\/?>(?=\s*)/gi,'\n')
+    .replace(/<\/(p|div|li|h[1-6])>/gi,'\n')
+    .replace(/<[^>]*>/g,' ');
+  const box=document.createElement('textarea');
+  box.innerHTML=raw;
+  return box.value.replace(/\u00a0/g,' ').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
+};
+const statusLabel=x=>({pending:'Menunggu',processing:'Diproses',success:'Sukses',completed:'Selesai',cancelled:'Dibatalkan',canceled:'Dibatalkan',failed:'Gagal',error:'Gagal',rejected:'Ditolak'})[String(x||'').toLowerCase()]||String(x||'Menunggu');
+
 function appEl(){return document.getElementById('app');}
 
 function showFatal(title,msg){
@@ -141,7 +153,7 @@ function home(){
     <div><small>Total Profit</small><b>Rp 0</b></div>
   </div>
   <div class="banner"><b>${esc(setting('panel_name','WSID SMM PANEL'))}</b><span>Solusi terbaik untuk kebutuhan sosial media Anda</span><small>Cepat • Aman • Terpercaya</small></div>
-  <h2>Provider Populer</h2>
+  <h2>Layanan Populer</h2>
   <div class="grid2">${['TikTok','Instagram','YouTube','Facebook'].map(x=>`<button onclick="nav('order')"><b>${x}</b><small>Layanan ${x}</small></button>`).join('')}</div>
   <div class="balance"><span>Saldo Anda<br><b>${money(S.wallet?.balance)}</b></span><button class="btn red" onclick="nav('deposit')">Deposit</button></div>
   <div class="menus">${[
@@ -149,9 +161,8 @@ function home(){
     ['orders','▣','Pesanan','Lihat status pesanan'],
     ['deposit','▤','Deposit','Tambah saldo'],
     ['profile','♙','Profil','Kelola akun'],
-    ['docs','▤','Docs API','Dokumentasi integrasi']
   ].map(x=>`<button onclick="nav('${x[0]}')"><strong>${x[1]}</strong><span><b>${x[2]}</b><small>${x[3]}</small></span>›</button>`).join('')}</div>
-  <div class="notice">⚠️ <span><b>Informasi Penting</b><small>Pastikan saldo provider mencukupi untuk proses order.</small></span></div>`;
+`;
 }
 
 function order(){
@@ -164,7 +175,7 @@ function cards(a){
   return a.length
     ? a.map(s=>`<article>
       <i>${esc((s.name||'S')[0])}</i>
-      <span><b>${esc(s.name)}</b><small>${esc(s.description||'')}</small><strong>${money(s.sale_price)}</strong></span>
+      <span><b>${esc(s.name)}</b><small>${esc(cleanText(s.description||''))}</small><strong>${money(s.sale_price)}</strong></span>
       <button class="btn mini" onclick="detail('${esc(s.id)}')">＋</button>
     </article>`).join('')
     : '<div class="empty">Belum ada layanan. Admin perlu Sync Services.</div>';
@@ -183,7 +194,7 @@ window.detail=id=>{
 
   appEl().innerHTML=shell(`<div class="head"><button onclick="nav('order')">←</button><h1>${esc(s.name)}</h1></div>
   <section class="card">
-    <p>${esc(s.description||'')}</p>
+    <div class="service-desc">${esc(cleanText(s.description||'Belum ada deskripsi layanan.'))}</div>
     <p>Harga: <b>${money(s.sale_price)}</b> per 1000</p>
     <label>Target<input id="target"></label>
     <label>Jumlah<input id="qty" type="number" min="${s.min_qty}" max="${s.max_qty}" value="${s.min_qty}"></label>
@@ -209,7 +220,7 @@ window.makeOrder=async id=>{
     const pr=await sb.rpc('submit_order',{p_order_id:r.data});
     if(pr.error)throw pr.error;
     const pj=pr.data||{};
-    if(!pj.status)throw new Error(pj.msg||'Order provider gagal.');
+    if(!pj.status)throw new Error(pj.msg||'Pengiriman layanan gagal.');
 
     alert('Pesanan berhasil dikirim.');
     await load();
@@ -223,50 +234,78 @@ window.makeOrder=async id=>{
 async function orders(){
   try{
     const r=await sb.from('orders')
-      .select('*,services(name)')
+      .select('*,services(name,category)')
       .eq('user_id',S.user.id)
       .order('created_at',{ascending:false});
 
     if(r.error)throw r.error;
-
-    return `<div class="head"><h1>Pesanan Saya</h1></div>
-      <div class="list">${(r.data||[]).map(o=>`<article>
-        <span><b>${esc(o.services?.name||'Layanan')}</b><small>${esc(o.target)}</small></span>
-        <span><b>${money(o.sale_total)}</b><small class="status">${esc(o.status)}</small></span>
-      </article>`).join('')||'<div class="empty">Belum ada pesanan.</div>'}</div>`;
+    const rows=r.data||[];
+    return `<div class="head order-head"><div><h1>Pesanan Saya</h1><small>Riwayat dan status pesanan kamu.</small></div><span class="count-pill">${rows.length} Pesanan</span></div>
+      <div class="order-list">${rows.map(o=>{
+        const st=String(o.status||'pending').toLowerCase();
+        return `<article class="order-card">
+          <div class="order-icon">${esc((o.services?.name||'L')[0])}</div>
+          <div class="order-main">
+            <div class="order-top"><b>${esc(o.services?.name||'Layanan')}</b><span class="status-badge status-${esc(st)}">${esc(statusLabel(st))}</span></div>
+            <small class="order-target">${esc(o.target)}</small>
+            <div class="order-meta"><span>Jumlah <b>${Number(o.quantity||0).toLocaleString('id-ID')}</b></span><span>Total <b>${money(o.sale_total)}</b></span></div>
+          </div>
+        </article>`;
+      }).join('')||'<div class="empty">Belum ada pesanan.</div>'}</div>`;
   }catch(e){
     console.error('Orders error:',e);
-    return `<div class="head"><h1>Pesanan Saya</h1></div><div class="card"><p>Pesanan belum bisa dimuat.</p><small>${esc(e?.message||'Terjadi kesalahan.')}</small></div>`;
+    return `<div class="head"><h1>Pesanan Saya</h1><small>Riwayat dan status pesanan kamu.</small></div><div class="card"><p>Pesanan belum bisa dimuat.</p><small>${esc(e?.message||'Terjadi kesalahan.')}</small></div>`;
   }
 }
 
 function deposit(){
-  return `<div class="head"><h1>Deposit Saldo</h1><small>Transfer manual lalu upload bukti.</small></div>
-  <section class="card"><div class="pay">
-    <b>Bayar ke DANA</b><span>${esc(setting('dana_name',setting('owner_name','Witama Store.ID')))}</span>
-    <strong>${esc(setting('dana_number','Nomor belum diatur'))}</strong>
-    <button class="btn" onclick="navigator.clipboard?.writeText(setting('dana_number',''))">Salin</button>
-    ${setting('qris_image_url')?`<img src="${esc(setting('qris_image_url'))}" alt="QRIS">`:''}
-  </div>
-  <label>Nominal<input id="da" type="number" min="1000" placeholder="50000"></label>
-  <label>Bukti<input id="df" type="file" accept="image/*"></label>
-  <button class="btn red wide" onclick="sendDeposit()">Ajukan Deposit</button></section>`;
+  return `<div class="head"><h1>Deposit Saldo</h1><small>Transfer manual ke DANA, lalu kirim bukti pembayaran.</small></div>
+  <section class="deposit-hero">
+    <div class="deposit-title"><span class="deposit-icon">D</span><div><b>Tambah Saldo</b><small>Saldo masuk setelah admin melakukan ACC.</small></div></div>
+    <div class="deposit-steps"><span><i>1</i> Transfer</span><span><i>2</i> Upload bukti</span><span><i>3</i> Tunggu ACC admin</span></div>
+  </section>
+  <section class="deposit-card">
+    <div class="section-label">Pembayaran</div>
+    <div class="dana-box">
+      <div class="dana-logo">DANA</div>
+      <div class="dana-info"><b>${esc(setting('dana_name',setting('owner_name','Witama Store.ID')))}</b><strong>${esc(setting('dana_number','Nomor belum diatur'))}</strong><small>Transfer sesuai nominal yang kamu masukkan.</small></div>
+      <button class="btn" onclick="navigator.clipboard?.writeText(setting('dana_number',''));alert('Nomor DANA disalin')">Salin</button>
+    </div>
+    ${setting('qris_image_url')?`<div class="qris-wrap"><img src="${esc(setting('qris_image_url'))}" alt="QRIS"><small>Scan QRIS jika tersedia.</small></div>`:''}
+  </section>
+  <section class="deposit-card">
+    <div class="section-label">Nominal Deposit</div>
+    <div class="amount-input-wrap"><span>Rp</span><input id="da" type="number" min="2000" step="1" inputmode="numeric" placeholder="Masukkan nominal"></div>
+    <small class="deposit-min">Minimal deposit <b>Rp2.000</b></small>
+  </section>
+  <section class="deposit-card">
+    <div class="section-label">Bukti Pembayaran</div>
+    <label class="upload-box"><span>↑</span><b>Pilih bukti transfer</b><small>JPG, PNG atau WEBP • maksimal 2MB</small><input id="df" type="file" accept="image/*"></label>
+    <div class="deposit-note">Setelah mengirim bukti, status akan <b>Menunggu ACC Admin</b>. Silakan tunggu sampai admin memeriksa pengajuanmu.</div>
+    <button class="btn red wide" onclick="sendDeposit()">Kirim Pengajuan Deposit</button>
+  </section>`;
 }
-
 window.sendDeposit=async()=>{
   try{
     const amount=Number(document.getElementById('da')?.value);
     const f=document.getElementById('df')?.files?.[0];
-    if(amount<1000||!f)return alert('Nominal dan bukti wajib diisi.');
+    if(!Number.isFinite(amount)||amount<2000||!f)return alert('Nominal minimal Rp2.000 dan bukti wajib diisi.');
+    if(f.size>2*1024*1024)return alert('Ukuran bukti maksimal 2MB.');
 
     const path=`${S.user.id}/${crypto.randomUUID()}-${f.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
     const u=await sb.storage.from('deposit-proofs').upload(path,f);
     if(u.error)throw u.error;
 
-    const r=await sb.from('deposits').insert({user_id:S.user.id,amount,proof_path:path});
+    const r=await sb.from('deposits').insert({user_id:S.user.id,amount,proof_path:path}).select('id').single();
     if(r.error)throw r.error;
 
-    alert('Deposit menunggu ACC admin.');
+    // Telegram is a notification channel only; a Telegram failure must not cancel a valid deposit.
+    try{
+      const tg=await sb.functions.invoke('telegram-deposit-notify',{body:{deposit_id:r.data.id}});
+      if(tg.error)console.warn('Telegram notification:',tg.error);
+    }catch(tgErr){console.warn('Telegram notification exception:',tgErr)}
+
+    alert('Pengajuan deposit berhasil. Silakan tunggu sampai admin melakukan ACC.');
     nav('home');
   }catch(e){
     console.error('Deposit error:',e);
@@ -275,33 +314,18 @@ window.sendDeposit=async()=>{
 };
 
 async function profile(){
-  const api= S.profile?.api_id ? `<section class="card"><h3>API Saya</h3><p><b>API ID</b></p><pre>${esc(S.profile.api_id)}</pre><p><b>API Key</b></p><pre>${S.profile.api_key_last4?`••••••••${esc(S.profile.api_key_last4)}`:'Belum dibuat'}</pre><small class="muted">Untuk keamanan, API key lengkap hanya ditampilkan saat admin membuat/reset key.</small></section>` : `<section class="card"><b>API belum dibuat</b><p class="muted">Hubungi admin untuk membuat API ID dan API Key.</p></section>`;
   return `<div class="head"><h1>Profil</h1></div>
   <section class="card center"><div class="avatar">${esc((S.profile?.full_name||'W')[0])}</div>
     <h2>${esc(S.profile?.full_name||'Member')}</h2><small>${esc(S.user.email||'')}</small>
-    <p>Saldo <b>${money(S.wallet?.balance)}</b></p></section>${api}
-  <div class="menus"><button onclick="nav('docs')"><strong>▤</strong><span><b>Docs API</b><small>Dokumentasi API WSID.</small></span>›</button><button onclick="logout()"><strong>↪</strong><span><b>Keluar</b><small>Keluar akun.</small></span>›</button></div>`;
+    <p>Saldo <b>${money(S.wallet?.balance)}</b></p></section>
+  <div class="menus"><button onclick="logout()"><strong>↪</strong><span><b>Keluar</b><small>Keluar akun.</small></span>›</button></div>`;
 }
-
-function docs(){
-  const endpoint=`${C.SUPABASE_URL}/functions/v1/wsid-api`;
-  return `<div class="head"><h1>Docs API</h1><small>${esc(setting('panel_name','WSID SMM PANEL'))}</small></div>
-  <section class="card"><p>API publik untuk integrasi layanan panel.</p><h3>Endpoint</h3><pre>${esc(endpoint)}</pre><h3>Autentikasi</h3><pre>api_id=YOUR_API_ID
-api_key=YOUR_API_KEY</pre><h3>Services</h3><pre>POST ${esc(endpoint)}
-{"api_id":"YOUR_API_ID","api_key":"YOUR_API_KEY","action":"services"}</pre><h3>Order</h3><pre>POST ${esc(endpoint)}
-{"api_id":"YOUR_API_ID","api_key":"YOUR_API_KEY","action":"order","service":"SERVICE_ID","target":"@username","quantity":1000}</pre><h3>Status</h3><pre>POST ${esc(endpoint)}
-{"api_id":"YOUR_API_ID","api_key":"YOUR_API_KEY","action":"status","id":"ORDER_ID"}</pre><h3>Refill</h3><pre>POST ${esc(endpoint)}
-{"api_id":"YOUR_API_ID","api_key":"YOUR_API_KEY","action":"refill","id":"ORDER_ID"}</pre><h3>Refill Status</h3><pre>POST ${esc(endpoint)}
-{"api_id":"YOUR_API_ID","api_key":"YOUR_API_KEY","action":"refill_status","id":"ORDER_ID"}</pre></section>`;
-}
-
 async function render(){
   try{
     let c=S.page==='home'?home():
       S.page==='order'?order():
       S.page==='deposit'?deposit():
       S.page==='profile'?await profile():
-      S.page==='docs'?docs():
       await orders();
     appEl().innerHTML=shell(c);
   }catch(e){

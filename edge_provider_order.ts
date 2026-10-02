@@ -9,7 +9,7 @@ async function api(p:any,path:string,data:any){
   Object.entries(data).forEach(([k,v])=>f.set(k,String(v)));
   const base=String(p.base_url||'https://fayupedia.id/api').replace(/\/$/,'');
   const r=await fetch(`${base}/${path}`,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:f});
-  try{return await r.json();}catch{return {status:false,msg:`Provider HTTP ${r.status}`};}
+  try{return await r.json();}catch{return {status:false,msg:`Koneksi HTTP ${r.status}`};}
 }
 serve(async req=>{
   if(req.method==='OPTIONS')return new Response('ok',{headers:C});
@@ -25,16 +25,16 @@ serve(async req=>{
     const o=q.data;
     if(o.provider_order_id)return out({status:true,msg:'Already submitted',order:o.provider_order_id});
     const p=await admin.from('providers').select('*').eq('name','FAYUPEDIA').eq('is_active',true).single();
-    if(p.error||!p.data?.api_id||!p.data?.api_key)return out({status:false,msg:'Provider API belum dikonfigurasi di Admin > Provider.'},500);
+    if(p.error||!p.data?.api_id||!p.data?.api_key)return out({status:false,msg:'Koneksi layanan belum dikonfigurasi di Admin > Koneksi.'},500);
     const payload:any={service:o.services.provider_service_id,target:o.target,quantity:o.quantity};
     if(o.comments)payload.comments=o.comments;
     const r=await api(p.data,'order',payload);
     if(!r.status){
-      await admin.from('orders').update({status:'failed',provider_status:'failed',error_message:r.msg||'Provider order failed',updated_at:new Date().toISOString()}).eq('id',o.id);
+      await admin.from('orders').update({status:'failed',provider_status:'failed',error_message:r.msg||'Pengiriman layanan gagal',updated_at:new Date().toISOString()}).eq('id',o.id);
       const w=await admin.from('wallets').select('balance').eq('user_id',user.id).single();
       await admin.from('wallets').update({balance:Number(w.data?.balance||0)+Number(o.sale_total),updated_at:new Date().toISOString()}).eq('user_id',user.id);
-      await admin.from('transactions').insert({user_id:user.id,type:'refund',amount:o.sale_total,reference_id:o.id,description:'Refund order provider gagal'});
-      return out({status:false,msg:r.msg||'Provider order failed'},400);
+      await admin.from('transactions').insert({user_id:user.id,type:'refund',amount:o.sale_total,reference_id:o.id,description:'Refund pesanan gagal'});
+      return out({status:false,msg:r.msg||'Pengiriman layanan gagal'},400);
     }
     await admin.from('orders').update({provider_order_id:String(r.order||''),provider_status:'pending',status:'processing',updated_at:new Date().toISOString()}).eq('id',o.id);
     return out({status:true,order:r.order,msg:r.msg||'Order berhasil dikirim'});

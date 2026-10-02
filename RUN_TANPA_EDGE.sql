@@ -22,16 +22,16 @@ begin
     perform extensions.http_set_curlopt('CURLOPT_CONNECTTIMEOUT','15');
     resp := extensions.http_post(base||'/'||case when p_action='balance' then 'balance' else 'services' end, hdr, 'application/x-www-form-urlencoded');
   exception when others then
-    return jsonb_build_object('status',false,'msg','Tidak bisa menghubungi provider: '||sqlerrm);
+    return jsonb_build_object('status',false,'msg','Tidak bisa menghubungi layanan: '||sqlerrm);
   end;
   begin
     j := resp.content::jsonb;
   exception when others then
-    return jsonb_build_object('status',false,'msg','Balasan provider bukan JSON (HTTP '||resp.status||'): '||left(coalesce(resp.content,''),150));
+    return jsonb_build_object('status',false,'msg','Balasan layanan bukan JSON (HTTP '||resp.status||'): '||left(coalesce(resp.content,''),150));
   end;
   if p_action='balance' then return j; end if;
   if coalesce(j->>'status','')<>'true' or jsonb_typeof(j->'services')<>'array' then
-    return jsonb_build_object('status',false,'msg',coalesce(j->>'msg','Provider menolak permintaan: '||left(j::text,150)));
+    return jsonb_build_object('status',false,'msg',coalesce(j->>'msg','Koneksi menolak permintaan: '||left(j::text,150)));
   end if;
 
   create temp table if not exists _wsid_src(pid text,nm text,typ text,cat text,price numeric,mn bigint,mx bigint,rf boolean,descr text) on commit drop;
@@ -71,7 +71,7 @@ begin
   select * into s from public.services where id=o.service_id;
   select * into p from public.providers where name='FAYUPEDIA' and is_active=true limit 1;
   if not found or coalesce(p.api_id,'')='' or coalesce(p.api_key,'')='' then
-    return jsonb_build_object('status',false,'msg','Provider API belum dikonfigurasi di Admin > Provider.');
+    return jsonb_build_object('status',false,'msg','Koneksi layanan belum dikonfigurasi di Admin > Koneksi.');
   end if;
   base := regexp_replace(coalesce(p.base_url,'https://fayupedia.id/api'),'/$','');
   body := 'api_id='||extensions.urlencode(p.api_id::varchar)||'&api_key='||extensions.urlencode(p.api_key::varchar)
@@ -82,14 +82,14 @@ begin
     resp := extensions.http_post(base||'/order', body, 'application/x-www-form-urlencoded');
     j := resp.content::jsonb;
   exception when others then
-    j := jsonb_build_object('status',false,'msg','Provider error: '||sqlerrm);
+    j := jsonb_build_object('status',false,'msg','Koneksi error: '||sqlerrm);
   end;
   ok := coalesce(j->>'status','') in ('true','1');
   if not ok then
-    update public.orders set status='failed',provider_status='failed',error_message=coalesce(j->>'msg','Provider order failed'),updated_at=now() where id=o.id;
+    update public.orders set status='failed',provider_status='failed',error_message=coalesce(j->>'msg','Pengiriman layanan gagal'),updated_at=now() where id=o.id;
     update public.wallets set balance=balance+o.sale_total,updated_at=now() where user_id=o.user_id;
-    insert into public.transactions(user_id,type,amount,reference_id,description) values(o.user_id,'refund',o.sale_total,o.id,'Refund order provider gagal');
-    return jsonb_build_object('status',false,'msg',coalesce(j->>'msg','Provider order failed'));
+    insert into public.transactions(user_id,type,amount,reference_id,description) values(o.user_id,'refund',o.sale_total,o.id,'Refund pesanan gagal');
+    return jsonb_build_object('status',false,'msg',coalesce(j->>'msg','Pengiriman layanan gagal'));
   end if;
   update public.orders set provider_order_id=coalesce(j->>'order',''),provider_status='pending',status='processing',updated_at=now() where id=o.id;
   return jsonb_build_object('status',true,'order',j->>'order','msg',coalesce(j->>'msg','Order berhasil dikirim'));
@@ -99,3 +99,92 @@ grant execute on function public.provider_call(text) to authenticated;
 grant execute on function public.submit_order(uuid) to authenticated;
 notify pgrst, 'reload schema';
 notify pgrst, 'reload config';
+
+
+-- =============================================================
+-- TELEGRAM NOTIFICATION DEPOSIT (SQL ONLY)
+-- Tidak membutuhkan Edge Function.
+-- Jalankan bagian ini di Supabase SQL Editor.
+-- BOT TOKEN disimpan di Supabase Vault, bukan di frontend/GitHub.
+-- =============================================================
+create extension if not exists pg_net with schema extensions;
+
+-- Setelah membuat bot Telegram, simpan token dengan perintah berikut.
+-- GANTI TOKEN_BOT_TELEGRAM sebelum menjalankan.
+-- Jangan taruh token asli di GitHub.
+-- select vault.create_secret('TOKEN_BOT_TELEGRAM', 'ISI_BOT_TOKEN_DI_SINI', 'WSID Telegram deposit notification');
+
+create or replace function public.wsid_send_deposit_telegram()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, extensions, vault
+as $$
+declare
+  v_token text;
+  v_chat text;
+  v_name text;
+  v_email text;
+  v_money text;
+  v_created text;
+  v_body jsonb;
+begin
+  if new.status <> 'pending' then
+    return new;
+  end if;
+
+  select decrypted_secret
+    into v_token
+  from vault.decrypted_secrets
+  where name = 'TOKEN_BOT_TELEGRAM'
+  limit 1;
+
+  select trim(coalesce(value,''))
+    into v_chat
+  from public.panel_settings
+  where key = 'telegram_chat_id'
+  limit 1;
+
+  if coalesce(v_token,'') = '' or coalesce(v_chat,'') = '' then
+    return new;
+  end if;
+
+  select coalesce(full_name,'User'), coalesce(email,'-')
+    into v_name, v_email
+  from public.profiles
+  where id = new.user_id;
+
+  v_money := 'Rp ' || to_char(new.amount, 'FM999G999G999G999G990');
+  v_created := to_char(new.created_at at time zone 'Asia/Jakarta', 'DD/MM/YYYY HH24:MI');
+
+  v_body := jsonb_build_object(
+    'chat_id', v_chat,
+    'text', E'🔔 DEPOSIT BARU\n\n'
+      || '👤 User: ' || coalesce(v_name,'User') || E'\n'
+      || '📧 Email: ' || coalesce(v_email,'-') || E'\n'
+      || '💰 Nominal: ' || v_money || E'\n'
+      || '📌 Status: Menunggu ACC Admin\n'
+      || '🕐 ' || v_created || ' WIB',
+    'disable_web_page_preview', true
+  );
+
+  perform net.http_post(
+    url := 'https://api.telegram.org/bot' || v_token || '/sendMessage',
+    headers := jsonb_build_object('Content-Type','application/json'),
+    body := v_body
+  );
+
+  return new;
+exception when others then
+  -- Jangan menggagalkan pengajuan deposit hanya karena Telegram gagal.
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_wsid_deposit_telegram on public.deposits;
+create trigger trg_wsid_deposit_telegram
+after insert on public.deposits
+for each row
+execute function public.wsid_send_deposit_telegram();
+
+notify pgrst, 'reload schema';

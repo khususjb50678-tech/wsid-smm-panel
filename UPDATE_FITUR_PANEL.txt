@@ -1,95 +1,27 @@
-WSID SMM PANEL — UPDATE FITUR SETTINGS + API DOCS
+WSID SMM PANEL — FINAL UPDATE
 
-Yang berubah:
-1. Admin > Provider sekarang punya form:
-   - Nama Provider
-   - Base URL API
-   - API ID
-   - API Key
-   - Markup default persen / tetap
-   - Aktif/nonaktif
-   - Test Connection
-   - Sync Services
+1. Deposit
+- Nominal diketik sendiri.
+- Minimum Rp2.000.
+- Upload bukti transfer maksimal 2MB.
+- Status setelah kirim: Menunggu ACC Admin.
+- Tidak ada estimasi 1–5 menit.
+- Admin dapat melihat bukti, ACC, atau Tolak.
 
-2. Admin > Settings sekarang mengatur:
-   - Nama Panel
-   - Nama Owner
-   - Nomor DANA
-   - Nama DANA
-   - URL QRIS
-   - WhatsApp Support
-   - Telegram Support
-   - Instagram Support
+2. Notifikasi Telegram
+- User mengajukan deposit.
+- Website menyimpan deposit.
+- Website memanggil Edge Function telegram-deposit-notify.
+- Bot Telegram mengirim notifikasi ke Chat ID admin.
+- Bot token disimpan sebagai Supabase Edge Function Secret.
 
-3. Admin > Users:
-   - Buat API / Reset API
-   - API ID dan API Key user
-   - API Key lengkap hanya ditampilkan saat dibuat/reset.
+3. Tampilan
+- Tulisan Informasi Penting di Beranda dihapus.
+- Istilah Provider tidak ditampilkan di halaman user/admin.
+- Menu Docs API dihapus sementara.
+- API ID/API Key user dihapus sementara.
+- Deskripsi layanan HTML mentah dibersihkan.
 
-4. Admin > API Docs:
-   - Endpoint API WSID
-   - Services
-   - Order
-   - Status
-   - Refill
-   - Refill Status
-
-5. Profil user > Docs API:
-   - Endpoint aktif
-   - Contoh request
-   - API ID user
-   - API Key hanya ditampilkan sebagai 4 karakter terakhir.
-
-6. Config.js sekarang hanya berisi koneksi Supabase publik.
-   Setting bisnis dan credential provider tidak lagi diisi di config.js.
-
-CARA PASANG (urut):
-
-A. Supabase SQL Editor
-1. Buka Supabase project.
-2. SQL Editor > New query.
-3. Buka file schema.sql dari paket ini.
-4. Copy semua isinya.
-5. Paste ke SQL Editor.
-6. Run.
-
-B. Deploy Edge Functions
-Buat/deploy 3 function:
-- provider-fayupedia       <- edge_provider_fayupedia.ts
-- provider-order           <- edge_provider_order.ts
-- wsid-api                 <- edge_public_api.ts
-
-Nama function harus sama persis.
-
-C. GitHub Pages
-Upload/replace semua file paket ini ke ROOT repository.
-Jangan masukkan ke folder baru.
-
-D. Setelah login sebagai admin
-1. Buka Admin > Provider.
-2. Isi API ID provider.
-3. Isi API Key provider.
-4. Cek Base URL.
-5. Simpan API Provider.
-6. Klik Test Connection.
-7. Jika berhasil, klik Sync Services.
-
-E. Settings
-Buka Admin > Settings lalu isi semua data panel/DANA/kontak.
-Setelah disimpan, data akan dipakai website. Tidak perlu edit config.js lagi.
-
-F. API user
-1. Admin > Users.
-2. Pilih user.
-3. Klik Buat API.
-4. Simpan API ID dan API Key yang muncul.
-5. Jika Reset API, key lama langsung tidak berlaku.
-
-G. API publik
-Endpoint:
-https://hqcbunozmpjrmekszhkx.supabase.co/functions/v1/wsid-api
-
-Catatan keamanan:
-- Jangan memasukkan API Key provider ke HTML/JavaScript frontend.
-- Jangan upload credential provider ke GitHub.
-- Supabase URL + anon/publishable key di config.js memang tetap diperlukan agar frontend dapat terhubung ke Supabase. Itu bukan API Key provider.
+4. Setting
+- Branding, DANA, QRIS, kontak, dan Telegram Chat ID di Admin > Settings.
+- Koneksi layanan dan markup di Admin > Koneksi.

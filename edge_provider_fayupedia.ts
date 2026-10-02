@@ -17,8 +17,8 @@ async function api(p:any,path:string,data:any={}){
   const base=String(p.base_url||'https://fayupedia.id/api').replace(/\/$/,'');
   const f=new URLSearchParams({api_id:p.api_id,api_key:p.api_key});
   Object.entries(data).forEach(([k,v])=>f.set(k,String(v)));
-  const ac=new AbortController();const tm=setTimeout(()=>ac.abort(),20000);let r:Response;try{r=await fetch(`${base}/${path}`,{method:'POST',signal:ac.signal,headers:{'Content-Type':'application/x-www-form-urlencoded'},body:f});}catch(err){return {status:false,msg:'Provider tidak merespon / tidak bisa dihubungi: '+String(err)};}finally{clearTimeout(tm);}
-  let j:any;try{j=await r.json();}catch{j={status:false,msg:`Provider HTTP ${r.status}`};}
+  const ac=new AbortController();const tm=setTimeout(()=>ac.abort(),20000);let r:Response;try{r=await fetch(`${base}/${path}`,{method:'POST',signal:ac.signal,headers:{'Content-Type':'application/x-www-form-urlencoded'},body:f});}catch(err){return {status:false,msg:'Koneksi layanan tidak merespon / tidak bisa dihubungi: '+String(err)};}finally{clearTimeout(tm);}
+  let j:any;try{j=await r.json();}catch{j={status:false,msg:`Koneksi HTTP ${r.status}`};}
   return j;
 }
 
