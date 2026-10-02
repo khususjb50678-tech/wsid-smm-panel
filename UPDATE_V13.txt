@@ -1,0 +1,35 @@
+WSID SMM PANEL V13 - SQL ONLY
+
+PERUBAHAN:
+1. Admin > Settings > Notifikasi Telegram sekarang punya:
+   - Token Bot Telegram
+   - ID Telegram Admin/Test
+   - Channel / Grup Notifikasi
+   - Username Bot Telegram
+2. Notifikasi SQL dikirim ke Channel/Grup Notifikasi.
+3. Notifikasi otomatis: user baru, login, deposit, status deposit, order baru, status order, perubahan saldo.
+4. Link menuju bot ditambahkan otomatis jika Username Bot Telegram diisi.
+5. Admin > Pantau User: semua user, saldo, login terakhir, cari user, tambah/kurangi saldo.
+6. Admin > Reset: fitur reset dipisahkan.
+   - Reset Profit
+   - Reset Saldo User
+   - Reset Riwayat Order
+   - Reset Riwayat Deposit
+   - Reset Transaksi
+   - Reset Aktivitas Login
+   - Reset Semua Data Aktivitas (akun user tetap ada)
+
+CARA PASANG:
+1. Replace admin.js, admin.html, style.css di GitHub dengan file V13.
+2. Supabase SQL Editor: jalankan HANYA UPDATE_ADMIN_MONITOR_RESET_V13.sql.
+3. Jangan jalankan RUN_ALL.sql lagi.
+4. Admin > Settings > Notifikasi Telegram:
+   - Isi Token Bot Telegram.
+   - Isi Channel / Grup Notifikasi dengan @usernamechannel atau ID -100xxxxxxxxxx.
+   - Isi Username Bot Telegram tanpa @.
+   - Simpan Settings.
+5. Bot Telegram harus menjadi admin di channel/grup agar dapat mengirim pesan.
+6. Klik Tes Telegram.
+
+CATATAN KEAMANAN:
+Jika token bot pernah terlihat di screenshot/chat, sebaiknya buat token baru lewat BotFather lalu ganti token di Admin Settings.

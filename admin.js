@@ -14,14 +14,14 @@ async function init(){
 }
 function out(x){document.getElementById('admin').innerHTML=`<main class="auth"><section class="card"><h1>WSID Admin</h1><p>${esc(x)}</p><a class="btn red" href="index.html">Kembali</a></section></main>`}
 function draw(){
-  const tabs=['dashboard','deposits','orders','services','connection','users','finance','settings'];
-  const labels={dashboard:'Dashboard',deposits:'Deposit',orders:'Riwayat',services:'Layanan',connection:'Koneksi',users:'Users',finance:'Keuangan',settings:'Settings'};
+  const tabs=['dashboard','deposits','orders','services','connection','users','finance','reset','settings'];
+  const labels={dashboard:'Dashboard',deposits:'Deposit',orders:'Riwayat',services:'Layanan',connection:'Koneksi',users:'Pantau User',finance:'Keuangan',reset:'Reset',settings:'Settings'};
   document.getElementById('admin').innerHTML=`<div class="shell admin-shell"><header><div class="brand"><i>W</i><b>WSID<small>ADMIN</small></b></div><div class="admin-actions"><button class="bell" onclick="tab='deposits';draw()">🔔<span id="depositBadge" class="notify-badge">0</span></button><button onclick="location.href='index.html'">↗</button></div></header><main><div class="tabs">${tabs.map(x=>`<button class="${tab===x?'on':''}" onclick="tab='${x}';draw()">${labels[x]}</button>`).join('')}</div><div id="view">Loading...</div></main></div>`;
   loadTab();
 }
 async function loadTab(){
   try{
-    let r=tab==='dashboard'?dash():tab==='deposits'?deposits():tab==='orders'?orders():tab==='services'?services():tab==='connection'?connection():tab==='users'?users():tab==='finance'?finance():settings();
+    let r=tab==='dashboard'?dash():tab==='deposits'?deposits():tab==='orders'?orders():tab==='services'?services():tab==='connection'?connection():tab==='users'?users():tab==='finance'?finance():tab==='reset'?resetPanel():settings();
     document.getElementById('view').innerHTML=await r;
   }catch(e){document.getElementById('view').innerHTML=`<div class="card"><b>Gagal memuat</b><p>${esc(e.message||e)}</p></div>`;}
 }
@@ -82,21 +82,48 @@ async function users(){
   const [r,w,l]=await Promise.all([
     sb.from('profiles').select('id,full_name,email,role,created_at').order('created_at',{ascending:false}),
     sb.from('wallets').select('user_id,balance'),
-    sb.from('login_events').select('user_id,created_at').order('created_at',{ascending:false}).limit(500)
+    sb.from('login_events').select('user_id,created_at').order('created_at',{ascending:false}).limit(1000)
   ]);
   if(r.error)throw r.error;
   const balances=Object.fromEntries((w.data||[]).map(x=>[x.user_id,x.balance]));
   const last={};(l.data||[]).forEach(x=>{if(!last[x.user_id])last[x.user_id]=x.created_at});
-  const rows=r.data||[];
-  return `<h1>Users</h1><div class="history-search"><input id="userSearch" placeholder="Cari nama atau email..." oninput="filterUsers(this.value)"></div><div class="list" id="userList">${rows.map(x=>`<article class="admin-user-card" data-search="${esc((x.full_name||'')+' '+(x.email||'')+' '+x.id)}"><span><b>${esc(x.full_name||'Member')}</b><small>${esc(x.email||'-')} • ${esc(x.role)}</small><small>Daftar: ${new Date(x.created_at).toLocaleString('id-ID')}</small><strong>Saldo: ${money(balances[x.id]||0)}</strong><small>${last[x.id]?'Login terakhir: '+new Date(last[x.id]).toLocaleString('id-ID'):'Belum ada catatan login'}</small></span><span class="row"><button class="btn mini red" onclick="adjustBalance('${x.id}','${esc(x.full_name||'Member')}',1)">+ Saldo</button><button class="btn mini" onclick="adjustBalance('${x.id}','${esc(x.full_name||'Member')}',-1)">− Saldo</button></span></article>`).join('')||'<div class="empty">Belum ada user.</div>'}</div>`;
+  const rows=r.data||[]; const memberCount=rows.filter(x=>x.role==='user').length;
+  const totalBalance=rows.reduce((a,x)=>a+Number(balances[x.id]||0),0);
+  return `<div class="head"><h1>Pantau User</h1><small>${memberCount} user terdaftar • ${money(totalBalance)} total saldo</small></div>
+  <div class="stats"><div><small>Total User</small><b>${memberCount}</b></div><div><small>Total Saldo</small><b>${money(totalBalance)}</b></div></div>
+  <div class="history-search"><input id="userSearch" placeholder="Cari nama, email atau ID user..." oninput="filterUsers(this.value)"></div>
+  <div class="list" id="userList">${rows.map(x=>`<article class="admin-user-card" data-search="${esc((x.full_name||'')+' '+(x.email||'')+' '+x.id)}"><span><b>${esc(x.full_name||'Member')}</b><small>${esc(x.email||'-')} • ${esc(x.role)}</small><small>ID: ${esc(x.id)}</small><small>Daftar: ${new Date(x.created_at).toLocaleString('id-ID')}</small><strong>Saldo: ${money(balances[x.id]||0)}</strong><small>${last[x.id]?'Login terakhir: '+new Date(last[x.id]).toLocaleString('id-ID'):'Belum ada catatan login'}</small></span><span class="row"><button class="btn mini red" onclick="adjustBalance('${x.id}','${esc(x.full_name||'Member')}',1)">+ Saldo</button><button class="btn mini" onclick="adjustBalance('${x.id}','${esc(x.full_name||'Member')}',-1)">− Saldo</button></span></article>`).join('')||'<div class="empty">Belum ada user.</div>'}</div>`;
 }
 window.filterUsers=q=>{const v=String(q||'').toLowerCase();document.querySelectorAll('#userList .admin-user-card').forEach(x=>x.style.display=(!v||x.dataset.search.toLowerCase().includes(v))?'':'none')};
 window.adjustBalance=async(id,name,dir)=>{const label=dir>0?'Tambah saldo':'Kurangi saldo';const raw=prompt(`${label} untuk ${name}\nMasukkan nominal tanpa titik/koma:`, '2000');if(raw===null)return;const amount=Number(String(raw).replace(/[^0-9.-]/g,''));if(!Number.isFinite(amount)||amount<=0)return alert('Nominal tidak valid.');const note=prompt('Keterangan (opsional):',label);const r=await sb.rpc('admin_adjust_balance',{p_user_id:id,p_amount:dir*amount,p_description:note||label});if(r.error)return alert(r.error.message);alert(`${label} berhasil. Saldo sekarang: ${money(r.data)}`);draw()};
+
 
 async function finance(){
   const w=await sb.from('wallets').select('balance'),o=await sb.from('orders').select('provider_cost,sale_total,profit');
   return `<h1>Keuangan</h1><div class="stats"><div><small>Saldo User</small><b>${money((w.data||[]).reduce((a,x)=>a+Number(x.balance),0))}</b></div><div><small>Biaya Dasar</small><b>${money((o.data||[]).reduce((a,x)=>a+Number(x.provider_cost),0))}</b></div><div><small>Profit</small><b>${money((o.data||[]).reduce((a,x)=>a+Number(x.profit),0))}</b></div></div>`;
 }
+async function resetPanel(){
+  return `<h1>Reset</h1>
+  <section class="card reset-card"><h3>⚠️ Reset Data Panel</h3><p class="muted">Setiap fitur di bawah berdiri sendiri. Akun user, layanan, koneksi, dan Settings tidak ikut dihapus kecuali yang tertulis pada tombol.</p>
+  <div class="reset-grid">
+    <button class="reset-item" onclick="runReset('profit','Reset semua profit? Profit pada riwayat order akan diubah menjadi Rp0.')"><b>💰 Reset Profit</b><small>Set semua profit order menjadi Rp0.</small></button>
+    <button class="reset-item" onclick="runReset('balance','Reset semua saldo user? Semua saldo akan menjadi Rp0.')"><b>💳 Reset Saldo User</b><small>Semua saldo wallet user menjadi Rp0.</small></button>
+    <button class="reset-item" onclick="runReset('orders','Hapus semua riwayat order? Tindakan ini tidak dapat dibatalkan.')"><b>🛒 Reset Riwayat Order</b><small>Hapus seluruh data order.</small></button>
+    <button class="reset-item" onclick="runReset('deposits','Hapus semua riwayat deposit? Tindakan ini tidak dapat dibatalkan.')"><b>🏦 Reset Riwayat Deposit</b><small>Hapus seluruh pengajuan deposit.</small></button>
+    <button class="reset-item" onclick="runReset('transactions','Hapus semua transaksi? Tindakan ini tidak dapat dibatalkan.')"><b>📒 Reset Transaksi</b><small>Hapus seluruh catatan transaksi saldo.</small></button>
+    <button class="reset-item" onclick="runReset('logins','Hapus semua catatan login user?')"><b>🔐 Reset Aktivitas Login</b><small>Hapus seluruh riwayat login.</small></button>
+    <button class="reset-item danger-reset" onclick="runReset('all_activity','RESET SEMUA DATA AKTIVITAS? Order, deposit, transaksi, login dan saldo akan direset. Akun user tetap ada.')"><b>🔥 Reset Semua Data Aktivitas</b><small>Membersihkan data aktivitas tetapi akun user tetap dipertahankan.</small></button>
+  </div></section>`;
+}
+window.runReset=async(target,message)=>{
+  if(!confirm(message))return;
+  const confirm2=target==='all_activity'||['orders','deposits','transactions'].includes(target)?prompt('Ketik RESET untuk melanjutkan:',''):null;
+  if(confirm2!==null && confirm2!=='RESET')return alert('Reset dibatalkan.');
+  const r=await sb.rpc('admin_reset_panel_data',{p_target:target});
+  if(r.error)return alert(r.error.message);
+  alert(r.data?.message||'Reset berhasil.'); draw();
+};
+
 async function settings(){
   const [r,tg]=await Promise.all([sb.from('panel_settings').select('*'),sb.from('telegram_config').select('bot_token,chat_id').eq('id',1).maybeSingle()]);const v={};(r.data||[]).forEach(x=>v[x.key]=x.value);if(tg.data){v.telegram_bot_token=tg.data.bot_token||'';if(tg.data.chat_id)v.telegram_chat_id=tg.data.chat_id;}
   return `<h1>Settings</h1><section class=\"card\"><h3>Branding & Kontak</h3>
@@ -112,7 +139,8 @@ async function settings(){
   <label>Instagram Support<input id=\"si\" value=\"${esc(v.support_instagram||'')}\"></label>
   <h3 class=\"settings-subtitle\">Notifikasi Telegram</h3>
   <label>Token Bot Telegram<input id="tb" type="text" value="${esc(v.telegram_bot_token||'')}" placeholder="Masukkan token bot Telegram"></label>
-  <label>ID Telegram / Channel<input id="tc" value="${esc(v.telegram_chat_id||'')}" placeholder="Contoh: 123456789 atau @channel"></label>
+  <label>ID Telegram Admin / Test<input id="tc" value="${esc(v.telegram_chat_id||'')}" placeholder="Contoh: 123456789"></label>
+  <label>Channel / Grup Notifikasi<input id="tnc" value="${esc(v.telegram_notify_chat_id||'')}" placeholder="Contoh: @channelkamu atau -1001234567890"></label>
   <label>Username Bot Telegram<input id="tbu" value="${esc(v.telegram_bot_username||'')}" placeholder="Contoh: UbotWSID"></label>
   <small class="muted">Token digunakan untuk notifikasi panel ke Telegram dan hanya dapat diubah dari area Admin. Pastikan bot sudah menjadi admin di channel/grup tujuan.</small>
   <div class=\"row\"><button class=\"btn red\" onclick=\"saveSettings()\">Simpan Settings</button><button class=\"btn\" onclick=\"testTelegram()\">Tes Telegram</button></div><p id=\"sm\" class=\"msg\"></p></section>`;
@@ -120,7 +148,7 @@ async function settings(){
 window.showQrisName=input=>{const f=input?.files?.[0],el=document.getElementById('qris-name');if(el)el.textContent=f?`File dipilih: ${f.name}`:'JPG, PNG atau WEBP • maksimal 2MB';};
 window.saveSettings=async()=>{
   try{
-    const map={panel_name:document.getElementById('sn').value,owner_name:document.getElementById('so').value,dana_number:document.getElementById('sd').value,dana_name:document.getElementById('sda').value,support_whatsapp:document.getElementById('sw').value,support_telegram:document.getElementById('st').value,support_instagram:document.getElementById('si').value,telegram_chat_id:document.getElementById('tc').value.trim(),telegram_bot_username:document.getElementById('tbu').value.trim()};
+    const map={panel_name:document.getElementById('sn').value,owner_name:document.getElementById('so').value,dana_number:document.getElementById('sd').value,dana_name:document.getElementById('sda').value,support_whatsapp:document.getElementById('sw').value,support_telegram:document.getElementById('st').value,support_instagram:document.getElementById('si').value,telegram_chat_id:document.getElementById('tc').value.trim(),telegram_notify_chat_id:document.getElementById('tnc').value.trim(),telegram_bot_username:document.getElementById('tbu').value.trim()};
     const telegramToken=document.getElementById('tb')?.value.trim(); const telegramChat=document.getElementById('tc')?.value.trim();
     if(telegramToken||telegramChat){const meTelegram=(await sb.auth.getUser()).data.user?.id||null;const tg=await sb.from('telegram_config').upsert({id:1,bot_token:telegramToken||null,chat_id:telegramChat||null,updated_by:meTelegram,updated_at:new Date().toISOString()},{onConflict:'id'});if(tg.error)throw tg.error;}
     const qf=document.getElementById('qrisFile')?.files?.[0];
@@ -140,7 +168,7 @@ window.saveSettings=async()=>{
   }catch(e){alert(e?.message||'Gagal menyimpan settings.');}
 };
 window.testTelegram=async()=>{
-  const chat=document.getElementById('tc')?.value.trim();
+  const chat=document.getElementById('tnc')?.value.trim()||document.getElementById('tc')?.value.trim();
   const token=document.getElementById('tb')?.value.trim();
   if(!token)return alert('Isi Token Bot Telegram dulu.');
   if(!chat)return alert('Isi ID Telegram dulu.');

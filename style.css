@@ -23,3 +23,6 @@ select{width:100%;padding:12px;background:#080d13;border:1px solid #26333f;borde
 .admin-user-card>span:first-child{display:grid;gap:4px;min-width:0}
 .admin-user-card>span:last-child{flex-wrap:wrap;justify-content:flex-end}
 .admin-user-card strong{font-size:15px}
+
+/* V13 - User monitor, channel notification and separated reset tools */
+.reset-grid{display:grid;gap:10px;margin-top:12px}.reset-item{width:100%;text-align:left;padding:14px;border:1px solid #283541;border-radius:14px;background:#0a0f15;color:#fff}.reset-item b,.reset-item small{display:block}.reset-item small{color:#8995a4;margin-top:5px;line-height:1.4}.reset-item:active{border-color:#ef1930}.danger-reset{border-color:#7a1b29;background:linear-gradient(145deg,#19090d,#0b0f14)}.admin-user-card{align-items:flex-start!important}.admin-user-card>span:first-child{flex:1}.admin-user-card .row{margin-top:0;min-width:150px}.admin-user-card .row .btn{flex:0 0 auto}.settings-subtitle{margin-top:22px}
