@@ -294,12 +294,12 @@ function deposit(){
   </section>
   <section class="deposit-card">
     <div class="section-label">Bukti Pembayaran</div>
-    <div class="upload-box" onclick="document.getElementById('df').click()"><span>↑</span><b>Pilih bukti transfer</b><small id="proof-name">JPG, PNG atau WEBP • maksimal 2MB</small><input id="df" type="file" accept="image/jpeg,image/png,image/webp" onchange="showProofName(this)"></div>
+    <div class="upload-box proof-upload" onclick="document.getElementById('df').click()"><span>↑</span><b>Pilih bukti transfer</b><small id="proof-name">JPG, PNG atau WEBP • maksimal 2MB</small><div id="proof-preview" class="proof-preview"></div><input id="df" type="file" accept="image/jpeg,image/png,image/webp" onchange="showProofName(this)"></div>
     <div class="deposit-note">Setelah mengirim bukti, status akan <b>Menunggu ACC Admin</b>. Silakan tunggu sampai admin memeriksa pengajuanmu.</div>
     <button class="btn red wide" onclick="sendDeposit()">Kirim Pengajuan Deposit</button>
   </section>`;
 }
-window.showProofName=input=>{const f=input?.files?.[0],el=document.getElementById('proof-name');if(el)el.textContent=f?`File dipilih: ${f.name}`:'JPG, PNG atau WEBP • maksimal 2MB';};
+window.showProofName=input=>{const f=input?.files?.[0],el=document.getElementById('proof-name'),box=document.getElementById('proof-preview');if(box){if(window.__proofPreviewUrl)URL.revokeObjectURL(window.__proofPreviewUrl);box.innerHTML='';window.__proofPreviewUrl='';if(f){window.__proofPreviewUrl=URL.createObjectURL(f);box.innerHTML=`<img src="${window.__proofPreviewUrl}" class="proof-preview-img" alt="Preview bukti transfer"><small class="proof-preview-name">${esc(f.name)}</small>`;}}if(el)el.textContent=f?'Foto siap dikirim':'JPG, PNG atau WEBP • maksimal 2MB';};
 window.sendDeposit=async()=>{
   try{
     const amount=Number(document.getElementById('da')?.value);

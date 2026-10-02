@@ -34,7 +34,7 @@ async function dash(){
   return `<h1>Dashboard</h1><div class="stats"><div><small>User</small><b>${u.count||0}</b></div><div><small>Pesanan</small><b>${o.count||0}</b></div><div><small>Profit</small><b>${money((p.data||[]).reduce((a,x)=>a+Number(x.profit||0),0))}</b></div><div class="stat-alert"><small>Deposit Menunggu</small><b>${pending}</b></div></div>${pending?`<section class="admin-notice"><span class="notify-dot">!</span><div><b>${pending} deposit menunggu ACC</b><small>Periksa bukti pembayaran lalu lakukan ACC atau Tolak.</small></div><button class="btn red mini" onclick="tab='deposits';draw()">Lihat</button></section>`:''}<section class="card"><b>Pengaturan panel</b><p class="muted">DANA, branding, kontak, koneksi layanan, markup, dan notifikasi Telegram dapat dikelola dari panel ini.</p></section>`;
 }
 async function deposits(){
-  const r=await sb.from('deposits').select('*,profiles(full_name,email)').order('created_at',{ascending:false});
+  const r=await sb.from('deposits').select('*,profiles:profiles!deposits_user_id_fkey(full_name,email)').order('created_at',{ascending:false});
   if(r.error)throw r.error;
   const rows=r.data||[];
   const signed=await Promise.all(rows.map(async d=>{
@@ -44,7 +44,7 @@ async function deposits(){
   }));
   const urls=Object.fromEntries(signed);
   const pending=rows.filter(x=>x.status==='pending').length;
-  return `<div class="head"><h1>Deposit</h1><small>${pending} pengajuan menunggu ACC.</small></div><div class="list">${rows.map(d=>`<article class="admin-deposit-card"><span><b>${esc(d.profiles?.full_name||'User')}</b><small>${esc(d.profiles?.email||'')} • ${new Date(d.created_at).toLocaleString('id-ID')}</small><strong>${money(d.amount)}</strong>${urls[d.id]?`<a class="btn mini" href="${urls[d.id]}" target="_blank" rel="noopener">Lihat Bukti</a>`:''}</span><span><em class="status-badge status-${esc(d.status)}">${d.status==='pending'?'Menunggu ACC':d.status==='approved'?'Disetujui':'Ditolak'}</em>${d.status==='pending'?`<div class="row"><button class="btn mini red" onclick="review('${d.id}',true)">ACC</button><button class="btn mini danger" onclick="review('${d.id}',false)">Tolak</button></div>`:''}</span></article>`).join('')||'<div class="empty">Belum ada pengajuan deposit.</div>'}</div>`;
+  return `<div class="head"><h1>Deposit</h1><small>${pending} pengajuan menunggu ACC.</small></div><div class="list">${rows.map(d=>`<article class="admin-deposit-card"><span><b>${esc(d.profiles?.full_name||'User')}</b><small>${esc(d.profiles?.email||'')} • ${new Date(d.created_at).toLocaleString('id-ID')}</small><strong>${money(d.amount)}</strong>${urls[d.id]?`<a href="${urls[d.id]}" target="_blank" rel="noopener"><img class="admin-proof-thumb" src="${urls[d.id]}" alt="Bukti pembayaran"></a><a class="btn mini" href="${urls[d.id]}" target="_blank" rel="noopener">Lihat Bukti</a>`:''}</span><span><em class="status-badge status-${esc(d.status)}">${d.status==='pending'?'Menunggu ACC':d.status==='approved'?'Disetujui':'Ditolak'}</em>${d.status==='pending'?`<div class="row"><button class="btn mini red" onclick="review('${d.id}',true)">ACC</button><button class="btn mini danger" onclick="review('${d.id}',false)">Tolak</button></div>`:''}</span></article>`).join('')||'<div class="empty">Belum ada pengajuan deposit.</div>'}</div>`;
 }
 window.review=async(id,ok)=>{const r=await sb.rpc('review_deposit',{p_deposit_id:id,p_approve:ok});if(r.error)return alert(r.error.message);draw()};
 async function orders(){
@@ -87,7 +87,7 @@ async function finance(){
   return `<h1>Keuangan</h1><div class="stats"><div><small>Saldo User</small><b>${money((w.data||[]).reduce((a,x)=>a+Number(x.balance),0))}</b></div><div><small>Biaya Dasar</small><b>${money((o.data||[]).reduce((a,x)=>a+Number(x.provider_cost),0))}</b></div><div><small>Profit</small><b>${money((o.data||[]).reduce((a,x)=>a+Number(x.profit),0))}</b></div></div>`;
 }
 async function settings(){
-  const r=await sb.from('panel_settings').select('*');const v={};(r.data||[]).forEach(x=>v[x.key]=x.value);
+  const [r,tg]=await Promise.all([sb.from('panel_settings').select('*'),sb.from('telegram_config').select('bot_token,chat_id').eq('id',1).maybeSingle()]);const v={};(r.data||[]).forEach(x=>v[x.key]=x.value);if(tg.data){v.telegram_bot_token=tg.data.bot_token||'';if(tg.data.chat_id)v.telegram_chat_id=tg.data.chat_id;}
   return `<h1>Settings</h1><section class=\"card\"><h3>Branding & Kontak</h3>
   <label>Nama Panel<input id=\"sn\" value=\"${esc(v.panel_name||'WSID SMM PANEL')}\"></label>
   <label>Nama Owner<input id=\"so\" value=\"${esc(v.owner_name||'Witama Store.ID')}\"></label>
@@ -100,14 +100,17 @@ async function settings(){
   <label>Telegram Support<input id=\"st\" value=\"${esc(v.support_telegram||'')}\"></label>
   <label>Instagram Support<input id=\"si\" value=\"${esc(v.support_instagram||'')}\"></label>
   <h3 class=\"settings-subtitle\">Notifikasi Telegram</h3>
-  <label>Telegram Chat ID<input id=\"tc\" value=\"${esc(v.telegram_chat_id||'')}\" placeholder=\"Contoh: 123456789\"></label>
-  <small class=\"muted\">Token bot disimpan sebagai secret di Supabase Vault.</small>
+  <label>Token Bot Telegram<input id="tb" type="text" value="${esc(v.telegram_bot_token||'')}" placeholder="Masukkan token bot Telegram"></label>
+  <label>ID Telegram<input id="tc" value="${esc(v.telegram_chat_id||'')}" placeholder="Contoh: 123456789"></label>
+  <small class="muted">Token hanya digunakan untuk notifikasi deposit dan hanya dapat diubah dari area Admin.</small>
   <div class=\"row\"><button class=\"btn red\" onclick=\"saveSettings()\">Simpan Settings</button><button class=\"btn\" onclick=\"testTelegram()\">Tes Telegram</button></div><p id=\"sm\" class=\"msg\"></p></section>`;
 }
 window.showQrisName=input=>{const f=input?.files?.[0],el=document.getElementById('qris-name');if(el)el.textContent=f?`File dipilih: ${f.name}`:'JPG, PNG atau WEBP • maksimal 2MB';};
 window.saveSettings=async()=>{
   try{
     const map={panel_name:document.getElementById('sn').value,owner_name:document.getElementById('so').value,dana_number:document.getElementById('sd').value,dana_name:document.getElementById('sda').value,support_whatsapp:document.getElementById('sw').value,support_telegram:document.getElementById('st').value,support_instagram:document.getElementById('si').value,telegram_chat_id:document.getElementById('tc').value.trim()};
+    const telegramToken=document.getElementById('tb')?.value.trim(); const telegramChat=document.getElementById('tc')?.value.trim();
+    if(telegramToken||telegramChat){const meTelegram=(await sb.auth.getUser()).data.user?.id||null;const tg=await sb.from('telegram_config').upsert({id:1,bot_token:telegramToken||null,chat_id:telegramChat||null,updated_by:meTelegram,updated_at:new Date().toISOString()},{onConflict:'id'});if(tg.error)throw tg.error;}
     const qf=document.getElementById('qrisFile')?.files?.[0];
     if(qf){
       if(qf.size>2*1024*1024)return alert('Ukuran QRIS maksimal 2MB.');
@@ -126,8 +129,11 @@ window.saveSettings=async()=>{
 };
 window.testTelegram=async()=>{
   const chat=document.getElementById('tc')?.value.trim();
-  if(!chat)return alert('Isi Telegram Chat ID dulu.');
-  const save=await sb.from('panel_settings').upsert({key:'telegram_chat_id',value:chat,updated_by:(await sb.auth.getUser()).data.user?.id||null,updated_at:new Date().toISOString()},{onConflict:'key'});
+  const token=document.getElementById('tb')?.value.trim();
+  if(!token)return alert('Isi Token Bot Telegram dulu.');
+  if(!chat)return alert('Isi ID Telegram dulu.');
+  const me=(await sb.auth.getUser()).data.user?.id||null;
+  const save=await sb.from('telegram_config').upsert({id:1,bot_token:token,chat_id:chat,updated_by:me,updated_at:new Date().toISOString()},{onConflict:'id'});
   if(save.error)return alert(save.error.message);
   const r=await sb.rpc('test_telegram_deposit_notification');
   if(r.error)return alert(r.error.message);

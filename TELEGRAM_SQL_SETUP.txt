@@ -15,3 +15,6 @@ Catatan:
 - Token disimpan di Supabase Vault.
 - ACC/Tolak tetap dilakukan dari Admin Panel.
 - Jangan menaruh BOT TOKEN asli di config.js, GitHub, atau file frontend.
+
+
+V9: Setelah menjalankan UPDATE_FIX_V9_ONLY.sql, buka Admin > Settings > Notifikasi Telegram. Isi Token Bot Telegram di kolom paling atas, lalu ID Telegram di bawahnya. Klik Simpan Settings lalu Tes Telegram.

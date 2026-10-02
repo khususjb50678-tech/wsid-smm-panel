@@ -15,3 +15,11 @@ SQL tambahan yang perlu dijalankan hanya:
 UPDATE_FIX_V8.sql
 
 Setelah SQL berhasil, upload semua file website dari ZIP V8 ke ROOT GitHub.
+
+
+V9 HOTFIX:
+- Admin Deposit memakai relasi profiles yang spesifik agar tidak error multiple relationship.
+- Preview bukti transfer langsung muncul setelah foto dipilih.
+- Bukti deposit di Admin menampilkan thumbnail.
+- Telegram Bot Token sekarang ada di atas ID Telegram pada Settings Admin.
+- Jalankan UPDATE_FIX_V9_ONLY.sql saja setelah V8.
