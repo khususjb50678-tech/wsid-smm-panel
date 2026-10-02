@@ -230,7 +230,7 @@ window.makeOrder=async id=>{
 
   try{
     const r=await sb.rpc('create_order',{p_service_id:id,p_target:target,p_quantity:q});
-    if(r.error)throw r.error;
+    if(r.error)throw new Error('[Buat order] '+r.error.message);
 
     const pr=await sb.rpc('submit_order',{p_order_id:r.data});
     if(pr.error)throw pr.error;
@@ -348,11 +348,11 @@ window.sendDeposit=async()=>{
 
     const path=`${S.user.id}/${crypto.randomUUID()}-${f.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
     const u=await sb.storage.from('deposit-proofs').upload(path,f,{upsert:false,contentType:f.type||'image/jpeg'});
-    if(u.error)throw u.error;
+    if(u.error)throw new Error('[Upload bukti] '+u.error.message);
 
     const method=document.querySelector('.payment-logo.active')?.classList.contains('gopay')?'gopay':document.querySelector('.payment-logo.active')?.classList.contains('qris')?'qris':'dana';
     const r=await sb.rpc('request_deposit',{p_amount:amount,p_proof_path:path,p_method:method});
-    if(r.error)throw r.error;
+    if(r.error)throw new Error('[Simpan deposit] '+r.error.message);
 
     alert(`Pengajuan deposit berhasil. Total transfer: ${money(r.data?.payment_total||depositCalc(amount).total)}. Silakan tunggu sampai admin melakukan ACC.`);
     nav('home');
