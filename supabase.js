@@ -1,1 +1,17 @@
-const C=window.WSID_CONFIG||{};window.sb=null;if(window.supabase&&C.SUPABASE_URL&&!C.SUPABASE_URL.includes('GANTI-')&&C.SUPABASE_ANON_KEY&&!C.SUPABASE_ANON_KEY.includes('GANTI-'))window.sb=supabase.createClient(C.SUPABASE_URL,C.SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
+const C=window.WSID_CONFIG||{};
+window.sb=null;
+
+try{
+  if(window.supabase && C.SUPABASE_URL && C.SUPABASE_ANON_KEY &&
+     !C.SUPABASE_URL.includes("GANTI-") &&
+     !C.SUPABASE_ANON_KEY.includes("GANTI-")){
+    window.sb=window.supabase.createClient(
+      C.SUPABASE_URL,
+      C.SUPABASE_ANON_KEY,
+      {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}
+    );
+  }
+}catch(e){
+  console.error("Supabase init error:",e);
+  window.sb=null;
+}

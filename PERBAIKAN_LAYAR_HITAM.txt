@@ -1,0 +1,12 @@
+WSID SMM PANEL - PERBAIKAN
+
+Perbaikan utama:
+1. URL Supabase menggunakan URL project utama, bukan /rest/v1/.
+2. Dashboard tidak lagi blank jika query profile/wallet/service gagal.
+3. Ada fallback query services tanpa relasi categories.
+4. Ada error screen + tombol Muat Ulang jika JavaScript/Supabase error.
+5. Register otomatis masuk dashboard jika Confirm Email sudah OFF.
+6. Script diberi cache-busting ?v=2.
+
+Upload semua file ZIP ini ke root repository GitHub Pages dan replace file lama.
+Jangan taruh di folder admin/assets.
