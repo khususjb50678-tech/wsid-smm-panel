@@ -211,6 +211,12 @@ window.detail=id=>{
     </div>
   </section>`);
 };
+window.friendlyError=(e,fallback)=>{
+  const m=String(e?.message||e||'');
+  if(/cannot subscript/i.test(m))return 'Database belum diperbarui. Jalankan UPDATE_FIX_V26.sql di Supabase SQL Editor (lihat README_V26.txt).';
+  if(/row-level security|violates/i.test(m))return 'Akses ditolak oleh database. Pastikan UPDATE_FIX_V26.sql sudah dijalankan dan kamu sudah login.';
+  return m||fallback;
+};
 window.makeOrder=async id=>{
   const s=S.services.find(x=>x.id===id);
   if(!s)return alert('Layanan tidak ditemukan.');
@@ -236,7 +242,7 @@ window.makeOrder=async id=>{
     nav('orders');
   }catch(e){
     console.error('Order error:',e);
-    alert(e?.message||'Order gagal.');
+    alert(friendlyError(e,'Order gagal.'));
   }
 };
 
@@ -332,6 +338,8 @@ function deposit(){
 }
 window.showProofName=input=>{const f=input?.files?.[0],el=document.getElementById('proof-name'),box=document.getElementById('proof-preview');if(box){if(window.__proofPreviewUrl)URL.revokeObjectURL(window.__proofPreviewUrl);box.innerHTML='';window.__proofPreviewUrl='';if(f){window.__proofPreviewUrl=URL.createObjectURL(f);box.innerHTML=`<img src="${window.__proofPreviewUrl}" class="proof-preview-img" alt="Preview bukti transfer"><small class="proof-preview-name">${esc(f.name)}</small>`;}}if(el)el.textContent=f?'Foto siap dikirim':'JPG, PNG atau WEBP • maksimal 2MB';};
 window.sendDeposit=async()=>{
+  if(window.__sendingDeposit)return;
+  window.__sendingDeposit=true;
   try{
     const amount=Number(document.getElementById('da')?.value);
     const f=document.getElementById('df')?.files?.[0];
@@ -339,7 +347,7 @@ window.sendDeposit=async()=>{
     if(f.size>2*1024*1024)return alert('Ukuran bukti maksimal 2MB.');
 
     const path=`${S.user.id}/${crypto.randomUUID()}-${f.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
-    const u=await sb.storage.from('deposit-proofs').upload(path,f);
+    const u=await sb.storage.from('deposit-proofs').upload(path,f,{upsert:false,contentType:f.type||'image/jpeg'});
     if(u.error)throw u.error;
 
     const method=document.querySelector('.payment-logo.active')?.classList.contains('gopay')?'gopay':document.querySelector('.payment-logo.active')?.classList.contains('qris')?'qris':'dana';
@@ -350,8 +358,8 @@ window.sendDeposit=async()=>{
     nav('home');
   }catch(e){
     console.error('Deposit error:',e);
-    alert(e?.message||'Deposit gagal.');
-  }
+    alert(friendlyError(e,'Deposit gagal.'));
+  }finally{window.__sendingDeposit=false;}
 };
 
 async function profile(){
