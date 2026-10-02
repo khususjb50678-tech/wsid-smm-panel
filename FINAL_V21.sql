@@ -15,7 +15,8 @@ insert into public.panel_settings(key,value) values
   ('developer_logo_url',''),
   ('support_whatsapp',''),
   ('support_telegram',''),
-  ('support_instagram','')
+  ('support_instagram',''),
+  ('monitoring_website_url','')
 on conflict(key) do nothing;
 
 -- Hapus hanya setting tarik saldo lama. Data/tabel lain tidak disentuh.
@@ -248,5 +249,72 @@ end;
 $wsid_reset_v21$;
 
 grant execute on function public.admin_reset_panel_data(text) to authenticated;
+
+
+
+-- 7. Link tombol pada pesan monitoring Telegram.
+-- Tombol diarahkan ke WEBSITE PANEL yang diatur Admin, bukan ke bot Telegram.
+-- Jika URL kosong/tidak valid, notifikasi tetap terkirim tanpa tombol.
+create or replace function public.wsid_queue_telegram(p_chat text, p_text text)
+returns void
+language plpgsql
+security definer
+set search_path = public, extensions
+as $wsid_queue_telegram_v21$
+declare
+  v_token text;
+  v_url text;
+  v_body jsonb;
+  v_headers jsonb := jsonb_build_object('Content-Type','application/json');
+begin
+  select decrypted_secret into v_token
+  from vault.decrypted_secrets
+  where name='TOKEN_BOT_TELEGRAM'
+  limit 1;
+
+  if coalesce(trim(p_chat),'')='' or coalesce(trim(v_token),'')='' then
+    return;
+  end if;
+
+  select trim(coalesce(value,'')) into v_url
+  from public.panel_settings
+  where key='monitoring_website_url'
+  limit 1;
+
+  v_body := jsonb_build_object(
+    'chat_id', trim(p_chat),
+    'text', coalesce(p_text,''),
+    'parse_mode', 'HTML',
+    'disable_web_page_preview', true
+  );
+
+  if coalesce(v_url,'') ~* '^https?://[^[:space:]]+$' then
+    v_body := v_body || jsonb_build_object(
+      'reply_markup',
+      jsonb_build_object(
+        'inline_keyboard',
+        jsonb_build_array(
+          jsonb_build_array(
+            jsonb_build_object('text','🌐 Buka Website WSID','url',v_url)
+          )
+        )
+      )
+    );
+  end if;
+
+  begin
+    execute 'select extensions.http_post(url := $1, body := $2, headers := $3)'
+      using 'https://api.telegram.org/bot'||v_token||'/sendMessage', v_body, v_headers;
+  exception when undefined_function then
+    execute 'select net.http_post(url := $1, body := $2, headers := $3)'
+      using 'https://api.telegram.org/bot'||v_token||'/sendMessage', v_body, v_headers;
+  end;
+exception when others then
+  -- Jangan menggagalkan transaksi panel hanya karena Telegram bermasalah.
+  return;
+end;
+$wsid_queue_telegram_v21$;
+
+grant execute on function public.wsid_queue_telegram(text,text) to authenticated;
 
 notify pgrst, 'reload schema';

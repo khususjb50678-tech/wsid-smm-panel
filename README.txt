@@ -18,3 +18,6 @@ Fitur versi ini:
 - Fitur Tarik Saldo dihapus dari UI.
 - Reset Admin diperbaiki agar DELETE selalu memiliki WHERE.
 - Tidak ada file UPDATE_V9/FIX_V20/patch kecil lain di ZIP.
+
+
+FINAL V21: tombol monitoring Telegram sekarang dapat diarahkan ke website panel melalui Settings > Link Website untuk Tombol Monitoring.

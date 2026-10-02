@@ -42,7 +42,9 @@ C. SETTING ADMIN
    - Isi Link WhatsApp
    - Isi Link Telegram
    - Isi Link Instagram jika ingin ditampilkan
-10. Simpan Settings.
+10. Pada bagian Notifikasi Telegram, isi **Link Website untuk Tombol Monitoring** dengan alamat website panel, contoh `https://domain-kamu.github.io/`.
+11. Link tersebut yang akan dipakai tombol **🌐 Buka Website WSID** pada pesan monitoring Telegram.
+12. Simpan Settings.
 
 D. PEMBAYARAN USER
 1. User membuka Deposit.
@@ -55,6 +57,12 @@ D. PEMBAYARAN USER
 8. Biaya admin dihitung otomatis sesuai persen Admin.
 9. User upload bukti dan kirim pengajuan.
 10. Status menjadi Menunggu ACC Admin.
+
+H. LINK MONITORING TELEGRAM
+1. Pesan monitoring Telegram tidak lagi diarahkan ke bot.
+2. Tombol monitoring diarahkan ke URL website yang Admin isi pada Settings.
+3. Pastikan URL diawali `https://` atau `http://`.
+4. Setelah mengganti URL, tekan Simpan Settings lalu lakukan Tes Telegram.
 
 E. PROFIL / DEVELOPER
 Di halaman Profil user akan melihat kartu Developer yang berisi:
