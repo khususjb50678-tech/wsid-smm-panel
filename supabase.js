@@ -1,3 +1,4 @@
+(function(){
 const C=window.WSID_CONFIG||{};
 window.sb=null;
 
@@ -15,3 +16,4 @@ try{
   console.error("Supabase init error:",e);
   window.sb=null;
 }
+})();
