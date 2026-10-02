@@ -206,22 +206,10 @@ window.makeOrder=async id=>{
     const r=await sb.rpc('create_order',{p_service_id:id,p_target:target,p_quantity:q});
     if(r.error)throw r.error;
 
-    const sess=(await sb.auth.getSession()).data?.session;
-    if(!sess)throw new Error('Session login sudah berakhir. Silakan login kembali.');
-
-    const pr=await fetch(`${C.SUPABASE_URL}/functions/v1/provider-order`,{
-      method:'POST',
-      headers:{
-        Authorization:`Bearer ${sess.access_token}`,
-        'Content-Type':'application/json'
-      },
-      body:JSON.stringify({order_id:r.data})
-    });
-
-    let pj={};
-    try{pj=await pr.json();}catch(_){}
-
-    if(!pr.ok||!pj.status)throw new Error(pj.msg||`Order provider gagal (${pr.status}).`);
+    const pr=await sb.rpc('submit_order',{p_order_id:r.data});
+    if(pr.error)throw pr.error;
+    const pj=pr.data||{};
+    if(!pj.status)throw new Error(pj.msg||'Order provider gagal.');
 
     alert('Pesanan berhasil dikirim.');
     await load();

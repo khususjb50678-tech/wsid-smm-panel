@@ -72,5 +72,5 @@ api_key=YOUR_API_KEY</pre><h3>Services</h3><pre>POST ${endpoint}
   "action":"refill_status",
   "id":"ORDER_ID"
 }</pre><div class="notice">API key user dibuat dari menu Users. Key hanya ditampilkan saat dibuat/reset.</div></section>`}
-async function edge(body){const s=(await sb.auth.getSession()).data.session;if(!s)return{status:false,msg:'Session habis. Login ulang.'};const ac=new AbortController();const t=setTimeout(()=>ac.abort(),60000);try{const r=await fetch(`${C.SUPABASE_URL}/functions/v1/provider-fayupedia`,{method:'POST',signal:ac.signal,headers:{Authorization:`Bearer ${s.access_token}`,'Content-Type':'application/json',apikey:C.SUPABASE_ANON_KEY},body:JSON.stringify(body)});const tx=await r.text();try{return JSON.parse(tx)}catch{return{status:false,msg:`Edge Function error HTTP ${r.status}: ${tx.slice(0,200)||'kosong'}`}}}catch(e){return{status:false,msg:e.name==='AbortError'?'Timeout: tidak ada respon dalam 60 detik.':'Gagal menghubungi Edge Function "provider-fayupedia". Pastikan function sudah di-deploy dengan nama persis itu. ('+e.message+')'}}finally{clearTimeout(t)}}
+async function edge(body){const r=await sb.rpc('provider_call',{p_action:body.action});if(r.error)return{status:false,msg:r.error.message};return r.data||{status:false,msg:'Respon kosong'}}
 init();
