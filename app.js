@@ -275,11 +275,11 @@ async function orders(){
 function paymentLogo(type,label){
   const t=String(type||'').toLowerCase();
   const icons={
-    dana:`<svg viewBox="0 0 110 44" aria-hidden="true"><rect x="2" y="2" width="106" height="40" rx="12" fill="#1188ff"/><text x="55" y="29" text-anchor="middle" font-size="19" font-weight="900" fill="#fff" font-family="Arial,sans-serif">DANA</text></svg>`,
-    gopay:`<svg viewBox="0 0 110 44" aria-hidden="true"><rect x="2" y="2" width="106" height="40" rx="12" fill="#00a878"/><text x="55" y="29" text-anchor="middle" font-size="18" font-weight="900" fill="#fff" font-family="Arial,sans-serif">GoPay</text></svg>`,
-    qris:`<svg viewBox="0 0 110 44" aria-hidden="true"><rect x="2" y="2" width="106" height="40" rx="12" fill="#fff"/><g fill="#111"><rect x="15" y="11" width="8" height="8"/><rect x="27" y="11" width="8" height="8"/><rect x="15" y="23" width="8" height="8"/><rect x="27" y="23" width="3" height="8"/><rect x="32" y="23" width="3" height="3"/></g><text x="73" y="28" text-anchor="middle" font-size="17" font-weight="900" fill="#111" font-family="Arial,sans-serif">QRIS</text></svg>`
+    dana:`<svg viewBox="0 0 96 96" aria-hidden="true"><rect x="6" y="6" width="84" height="84" rx="26" fill="#1188ff"/><path d="M28 26h24c13 0 24 10.7 24 24S65 74 52 74H28V26Zm12 11v26h11c7 0 13-5.8 13-13S58 37 51 37H40Z" fill="#fff"/></svg>`,
+    gopay:`<svg viewBox="0 0 96 96" aria-hidden="true"><rect x="6" y="6" width="84" height="84" rx="26" fill="#00a878"/><circle cx="44" cy="48" r="25" fill="none" stroke="#fff" stroke-width="10"/><path d="M47 48h25" stroke="#00a878" stroke-width="13"/><path d="M47 48h25" stroke="#fff" stroke-width="7" stroke-linecap="round"/></svg>`,
+    qris:`<svg viewBox="0 0 96 96" aria-hidden="true"><rect x="6" y="6" width="84" height="84" rx="26" fill="#fff"/><g fill="#111"><path d="M17 17h24v24H17V17Zm7 7v10h10V24H24ZM55 17h24v24H55V17Zm7 7v10h10V24H62ZM17 55h24v24H17V55Zm7 7v10h10V62H24Z"/><path d="M55 55h10v10H55V55Zm14 0h10v14H69V55ZM55 69h10v10H55V69Zm14 5h10v5H69v-5Z"/></g></svg>`
   };
-  return `<button class="payment-logo ${t}" onclick="showPayment('${esc(t)}',this)" aria-label="${esc(label)}">${icons[t]||''}</button>`;
+  return `<button class="payment-logo ${t}" onclick="showPayment('${esc(t)}',this)" aria-label="${esc(label)}" title="${esc(label)}">${icons[t]||''}</button>`;
 }
 window.showPayment=(type,el)=>{
   const box=document.getElementById('payment-detail'); if(!box)return;
@@ -293,10 +293,18 @@ window.showPayment=(type,el)=>{
   }else{
     const isGo=t==='gopay', name=isGo?setting('gopay_name',setting('owner_name','Witama Store.ID')):setting('dana_name',setting('owner_name','Witama Store.ID'));
     const num=isGo?setting('gopay_number','Nomor belum diatur'):setting('dana_number','Nomor belum diatur');
-    box.innerHTML=`<div class="payment-detail-head"><b>${isGo?'GoPay':'DANA'}</b><small>${esc(name)}</small></div><div class="payment-number"><strong>${esc(num)}</strong><button class="btn" onclick="navigator.clipboard?.writeText(${JSON.stringify(num)});alert('Nomor disalin')">Salin</button></div><small class="payment-note">Transfer sesuai nominal yang kamu masukkan.</small>`;
+    box.innerHTML=`<div class="payment-detail-head"><b>${isGo?'GoPay':'DANA'}</b><small>${esc(name)}</small></div><div class="payment-number"><strong>${esc(num)}</strong><button class="btn" onclick="navigator.clipboard?.writeText(${JSON.stringify(num)});alert('Nomor disalin')">Salin</button></div><small class="payment-note">Transfer sesuai total pembayaran yang ditampilkan di bawah.</small>`;
   }
 };
+function depositFeePercent(){const n=Number(setting('deposit_fee_percent','0.7'));return Number.isFinite(n)&&n>=0?n:0.7;}
+function depositCalc(amount){const a=Math.max(0,Number(amount||0));const fee=Math.round(a*depositFeePercent()/100);return {amount:a,fee,total:a+fee};}
+function updateDepositCalc(){
+  const a=Number(document.getElementById('da')?.value||0), c=depositCalc(a);
+  const fee=document.getElementById('deposit-fee-value'), total=document.getElementById('deposit-total-value');
+  if(fee)fee.textContent=money(c.fee); if(total)total.textContent=money(c.total);
+}
 function deposit(){
+  const pct=depositFeePercent();
   return `<div class="head"><h1>Deposit Saldo</h1><small>Pilih metode pembayaran, lalu kirim bukti pembayaran.</small></div>
   <section class="deposit-hero">
     <div class="deposit-title"><span class="deposit-icon">Rp</span><div><b>Tambah Saldo</b><small>Saldo masuk setelah admin melakukan ACC.</small></div></div>
@@ -309,9 +317,11 @@ function deposit(){
   </section>
   <section class="deposit-card">
     <div class="section-label">Nominal Deposit</div>
-    <div class="amount-input-wrap"><span>Rp</span><input id="da" type="number" min="2000" step="1" inputmode="numeric" placeholder="Masukkan nominal"></div>
+    <div class="amount-input-wrap"><span>Rp</span><input id="da" type="number" min="2000" step="1" inputmode="numeric" placeholder="Masukkan nominal" oninput="updateDepositCalc()"></div>
     <small class="deposit-min">Minimal deposit <b>Rp2.000</b></small>
+    <div class="deposit-summary"><div><span>Biaya admin (${pct}%):</span><b id="deposit-fee-value">Rp0</b></div><div class="deposit-total-row"><span>Total transfer:</span><b id="deposit-total-value">Rp0</b></div></div>
   </section>
+  <section class="deposit-card deposit-terms"><div class="section-label">Ketentuan Deposit</div><ul><li>Nominal saldo yang masuk adalah nominal deposit yang kamu masukkan.</li><li>Biaya admin dihitung sesuai persentase yang diatur admin panel.</li><li>Total yang harus ditransfer = nominal deposit + biaya admin.</li><li>Pastikan nominal transfer sesuai total agar proses verifikasi tidak tertunda.</li></ul></section>
   <section class="deposit-card">
     <div class="section-label">Bukti Pembayaran</div>
     <div class="upload-box proof-upload" onclick="document.getElementById('df').click()"><span>↑</span><b>Pilih bukti transfer</b><small id="proof-name">JPG, PNG atau WEBP • maksimal 2MB</small><div id="proof-preview" class="proof-preview"></div><input id="df" type="file" accept="image/jpeg,image/png,image/webp" onchange="showProofName(this)"></div>
@@ -331,10 +341,11 @@ window.sendDeposit=async()=>{
     const u=await sb.storage.from('deposit-proofs').upload(path,f);
     if(u.error)throw u.error;
 
-    const r=await sb.from('deposits').insert({user_id:S.user.id,amount,proof_path:path}).select('id').single();
+    const method=document.querySelector('.payment-logo.active')?.classList.contains('gopay')?'gopay':document.querySelector('.payment-logo.active')?.classList.contains('qris')?'qris':'dana';
+    const r=await sb.rpc('request_deposit',{p_amount:amount,p_proof_path:path,p_method:method});
     if(r.error)throw r.error;
 
-    alert('Pengajuan deposit berhasil. Silakan tunggu sampai admin melakukan ACC.');
+    alert(`Pengajuan deposit berhasil. Total transfer: ${money(r.data?.payment_total||depositCalc(amount).total)}. Silakan tunggu sampai admin melakukan ACC.`);
     nav('home');
   }catch(e){
     console.error('Deposit error:',e);
@@ -355,14 +366,16 @@ async function profile(){
     <h2>${esc(S.profile?.full_name||'Member')}</h2><small>${esc(S.user.email||'')}</small>
     <p>Saldo <b>${money(S.wallet?.balance)}</b></p></section>
   <section class="developer-card">
-    <div class="developer-topline"><span>WEBSITE DEVELOPER</span><i></i></div>
-    <div class="developer-title">${devLogo?`<img src="${esc(devLogo)}" alt="Logo developer">`:'<div class="developer-logo">W</div>'}<div><small>DIBUAT & DIKELOLA OLEH</small><h2>${esc(devName)}</h2><em>Founder • Developer • Owner</em></div></div>
-    <p>${esc(devBio)}</p>
-    <div class="developer-contact-title">Butuh bantuan? Hubungi Customer Service</div>
-    <div class="contact-logos">
-      ${wa?`<a class="contact-logo whatsapp" href="${esc(wa)}" target="_blank" rel="noopener" aria-label="WhatsApp">${waIcon}</a>`:''}
-      ${tg?`<a class="contact-logo telegram" href="${esc(tg)}" target="_blank" rel="noopener" aria-label="Telegram">${tgIcon}</a>`:''}
-      ${ig?`<a class="contact-logo instagram" href="${esc(ig)}" target="_blank" rel="noopener" aria-label="Instagram">${igIcon}</a>`:''}
+    <div class="developer-topline"><span>ABOUT THE DEVELOPER</span><i></i></div>
+    <div class="developer-title">${devLogo?`<img src="${esc(devLogo)}" alt="Logo developer">`:'<div class="developer-logo">W</div>'}<div><small>PEMBUAT & PENGELOLA WEBSITE</small><h2>${esc(devName)}</h2><em>Founder • Developer • Owner</em></div></div>
+    <div class="developer-about"><b>Siapa di balik WSID SMM PANEL?</b><p>${esc(devBio)}</p></div>
+    <div class="developer-contact">
+      <div><b>Butuh bantuan?</b><small>Hubungi Customer Service melalui aplikasi pilihanmu.</small></div>
+      <div class="contact-logos">
+        ${wa?`<a class="contact-logo whatsapp" href="${esc(wa)}" target="_blank" rel="noopener" aria-label="WhatsApp" title="WhatsApp">${waIcon}</a>`:''}
+        ${tg?`<a class="contact-logo telegram" href="${esc(tg)}" target="_blank" rel="noopener" aria-label="Telegram" title="Telegram">${tgIcon}</a>`:''}
+        ${ig?`<a class="contact-logo instagram" href="${esc(ig)}" target="_blank" rel="noopener" aria-label="Instagram" title="Instagram">${igIcon}</a>`:''}
+      </div>
     </div>
   </section>
   <div class="menus"><button onclick="logout()"><strong>↪</strong><span><b>Keluar</b><small>Keluar akun.</small></span>›</button></div>`;
@@ -375,7 +388,6 @@ async function render(){
       S.page==='profile'?await profile():
       await orders();
     appEl().innerHTML=shell(c);
-    if(S.page==='deposit') setTimeout(()=>showPayment('dana'),0);
   }catch(e){
     console.error('Render error:',e);
     showFatal('Tampilan gagal dimuat',e?.message||'Terjadi kesalahan saat menampilkan dashboard.');

@@ -1,12 +1,20 @@
-WSID SMM PANEL V18
+WSID SMM PANEL — FINAL V21
 
-Isi ZIP ini adalah file penting untuk update website + FIX_V18.sql.
-Tidak ada file UPDATE_V9/V10/V11/V12/V13/V14/V15/V16/V17 yang tidak diperlukan.
+Versi final bersih untuk GitHub Pages + Supabase.
 
-Urutan:
-1. Jalankan FIX_V18.sql di Supabase.
-2. Upload file website ke ROOT GitHub Pages.
-3. Buka Admin > Settings untuk mengisi DANA, GoPay, QRIS, Developer, WhatsApp, Telegram, dan Instagram.
-4. Tes Deposit dan Reset.
+Isi ZIP hanya file yang diperlukan:
+- File website: index.html, login.html, register.html, admin.html
+- JavaScript/CSS: app.js, admin.js, auth.js, supabase.js, config.js, style.css
+- favicon.svg
+- FINAL_V21.sql
+- TUTORIAL_FINAL_V21.txt
 
-Jika database sudah berjalan, jangan jalankan SQL schema lama lagi.
+Fitur versi ini:
+- Deposit DANA / GoPay / QRIS dengan tombol logo aplikasi (tanpa tulisan pada tombol).
+- Detail pembayaran hanya muncul setelah metode pembayaran dipilih.
+- Biaya admin deposit dapat diatur Admin dalam persen.
+- QRIS di-upload dari Admin.
+- Logo developer, nama, deskripsi, WhatsApp, Telegram, dan Instagram dapat diatur dari Admin.
+- Fitur Tarik Saldo dihapus dari UI.
+- Reset Admin diperbaiki agar DELETE selalu memiliki WHERE.
+- Tidak ada file UPDATE_V9/FIX_V20/patch kecil lain di ZIP.

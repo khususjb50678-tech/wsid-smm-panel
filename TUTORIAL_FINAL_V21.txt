@@ -1,0 +1,76 @@
+TUTORIAL WSID SMM PANEL — FINAL V21
+
+PENTING
+1. ZIP ini sudah dirapikan. Jangan menggabungkan SQL dari versi lama.
+2. Jika database WSID kamu sudah pernah dipakai, jalankan HANYA FINAL_V21.sql satu kali.
+3. Jangan jalankan FIX_V19.sql, FIX_V20.sql, UPDATE_V9.sql, atau patch SQL lama setelah ini.
+
+A. UPLOAD WEBSITE KE GITHUB
+1. Buka repository GitHub WSID SMM PANEL.
+2. Upload semua file dari ZIP ke ROOT repository.
+3. Jangan masukkan ke folder baru.
+4. Jika GitHub menanyakan Replace/Overwrite, pilih file versi ZIP ini.
+5. Commit changes.
+6. Tunggu GitHub Pages selesai deploy.
+7. Buka halaman website dan lakukan refresh keras/reload.
+
+B. SUPABASE — SQL
+1. Buka Supabase → SQL Editor.
+2. Buat New query.
+3. Hapus isi editor yang lama sampai kosong.
+4. Buka file FINAL_V21.sql dari ZIP.
+5. Copy SEMUA isi file dari baris pertama sampai baris terakhir.
+6. Paste sekaligus ke SQL Editor.
+7. Tekan Run satu kali.
+8. Tunggu sampai muncul hasil berhasil.
+
+JANGAN menyalin sebagian function saja. Error "unterminated dollar quote" biasanya terjadi ketika function SQL terpotong atau hanya sebagian yang ditempel.
+
+C. SETTING ADMIN
+1. Login sebagai akun admin.
+2. Buka /admin.
+3. Masuk Settings.
+4. Isi Nomor DANA + Nama DANA.
+5. Isi Nomor GoPay + Nama GoPay.
+6. Atur Biaya Admin Deposit, misalnya 0.7 = 0,7%.
+7. Upload foto QRIS.
+8. Pada Developer Website:
+   - Upload Logo Developer
+   - Isi Nama Developer
+   - Isi Deskripsi Developer
+9. Pada Customer Service:
+   - Isi Link WhatsApp
+   - Isi Link Telegram
+   - Isi Link Instagram jika ingin ditampilkan
+10. Simpan Settings.
+
+D. PEMBAYARAN USER
+1. User membuka Deposit.
+2. Di bagian Pembayaran hanya tampil logo aplikasi.
+3. Klik logo DANA → detail DANA muncul.
+4. Klik logo GoPay → detail GoPay muncul.
+5. Klik logo QRIS → QRIS muncul.
+6. Sebelum logo dipilih, nomor/QRIS tidak langsung ditampilkan.
+7. User memasukkan nominal.
+8. Biaya admin dihitung otomatis sesuai persen Admin.
+9. User upload bukti dan kirim pengajuan.
+10. Status menjadi Menunggu ACC Admin.
+
+E. PROFIL / DEVELOPER
+Di halaman Profil user akan melihat kartu Developer yang berisi:
+- Logo developer
+- Nama developer
+- Peran sebagai pembuat/pengelola website
+- Deskripsi developer
+- Tombol logo WhatsApp / Telegram / Instagram
+
+Tombol kontak hanya berupa logo. Ketika diklik, user diarahkan ke link yang Admin simpan di Settings.
+
+F. RESET ADMIN
+Reset Profit, Saldo User, Riwayat Order, Riwayat Deposit, Transaksi, Aktivitas Login, dan Reset Semua Data Aktivitas sudah menggunakan SQL function yang aman dari error DELETE tanpa WHERE.
+
+Catatan: Reset tetap mempertahankan akun user. Gunakan fitur reset dengan hati-hati karena data aktivitas yang dihapus tidak dikembalikan.
+
+G. TARIK SALDO
+Fitur Tarik Saldo sengaja DIBATALKAN. Tidak ada menu Tarik Saldo di user maupun Admin.
+Setting withdrawal lama juga dibersihkan oleh FINAL_V21.sql.

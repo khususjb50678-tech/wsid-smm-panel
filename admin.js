@@ -31,7 +31,7 @@ async function dash(){
   const p=await sb.from('orders').select('profit');
   const d=await sb.from('deposits').select('amount',{count:'exact'}).eq('status','pending');
   const pending=d.count||0;
-  return `<h1>Dashboard</h1><div class="stats"><div><small>User</small><b>${u.count||0}</b></div><div><small>Pesanan</small><b>${o.count||0}</b></div><div><small>Profit</small><b>${money((p.data||[]).reduce((a,x)=>a+Number(x.profit||0),0))}</b></div><div class="stat-alert"><small>Deposit Menunggu</small><b>${pending}</b></div></div>${pending?`<section class="admin-notice"><span class="notify-dot">!</span><div><b>${pending} deposit menunggu ACC</b><small>Periksa bukti pembayaran lalu lakukan ACC atau Tolak.</small></div><button class="btn red mini" onclick="tab='deposits';draw()">Lihat</button></section>`:''}<section class="card"><b>Pengaturan panel</b><p class="muted">DANA, branding, kontak, koneksi layanan, markup, dan notifikasi Telegram dapat dikelola dari panel ini.</p></section>`;
+  return `<h1>Dashboard</h1><div class="stats"><div><small>User</small><b>${u.count||0}</b></div><div><small>Pesanan</small><b>${o.count||0}</b></div><div><small>Profit</small><b>${money((p.data||[]).reduce((a,x)=>a+Number(x.profit||0),0))}</b></div><div class="stat-alert"><small>Deposit Menunggu</small><b>${pending}</b></div></div>${pending?`<section class="admin-notice"><span class="notify-dot">!</span><div><b>${pending} deposit menunggu ACC</b><small>Periksa bukti pembayaran lalu lakukan ACC atau Tolak.</small></div><button class="btn red mini" onclick="tab='deposits';draw()">Lihat</button></section>`:''}<section class="card"><b>Pengaturan panel</b><p class="muted">DANA, GoPay, QRIS, biaya deposit, branding, kontak, koneksi layanan, markup, dan notifikasi Telegram dapat dikelola dari panel ini.</p></section>`;
 }
 async function deposits(){
   const r=await sb.from('deposits').select('*,profiles:profiles!deposits_user_id_fkey(full_name,email)').order('created_at',{ascending:false});
@@ -44,9 +44,10 @@ async function deposits(){
   }));
   const urls=Object.fromEntries(signed);
   const pending=rows.filter(x=>x.status==='pending').length;
-  return `<div class="head"><h1>Deposit</h1><small>${pending} pengajuan menunggu ACC.</small></div><div class="list">${rows.map(d=>`<article class="admin-deposit-card"><span><b>${esc(d.profiles?.full_name||'User')}</b><small>${esc(d.profiles?.email||'')} • ${new Date(d.created_at).toLocaleString('id-ID')}</small><strong>${money(d.amount)}</strong>${urls[d.id]?`<a href="${urls[d.id]}" target="_blank" rel="noopener"><img class="admin-proof-thumb" src="${urls[d.id]}" alt="Bukti pembayaran"></a><a class="btn mini" href="${urls[d.id]}" target="_blank" rel="noopener">Lihat Bukti</a>`:''}</span><span><em class="status-badge status-${esc(d.status)}">${d.status==='pending'?'Menunggu ACC':d.status==='approved'?'Disetujui':'Ditolak'}</em>${d.status==='pending'?`<div class="row"><button class="btn mini red" onclick="review('${d.id}',true)">ACC</button><button class="btn mini danger" onclick="review('${d.id}',false)">Tolak</button></div>`:''}</span></article>`).join('')||'<div class="empty">Belum ada pengajuan deposit.</div>'}</div>`;
+  return `<div class="head"><h1>Deposit</h1><small>${pending} pengajuan menunggu ACC.</small></div><div class="list">${rows.map(d=>`<article class="admin-deposit-card"><span><b>${esc(d.profiles?.full_name||'User')}</b><small>${esc(d.profiles?.email||'')} • ${new Date(d.created_at).toLocaleString('id-ID')}</small><strong>Saldo masuk: ${money(d.amount)}</strong><small>Biaya admin: ${money(d.fee_amount||0)} • Total transfer: ${money(d.payment_total||d.amount)}</small>${d.payment_method?`<small>Metode: ${esc(String(d.payment_method).toUpperCase())}</small>`:''}${urls[d.id]?`<a href="${urls[d.id]}" target="_blank" rel="noopener"><img class="admin-proof-thumb" src="${urls[d.id]}" alt="Bukti pembayaran"></a><a class="btn mini" href="${urls[d.id]}" target="_blank" rel="noopener">Lihat Bukti</a>`:''}</span><span><em class="status-badge status-${esc(d.status)}">${d.status==='pending'?'Menunggu ACC':d.status==='approved'?'Disetujui':'Ditolak'}</em>${d.status==='pending'?`<div class="row"><button class="btn mini red" onclick="review('${d.id}',true)">ACC</button><button class="btn mini danger" onclick="review('${d.id}',false)">Tolak</button></div>`:''}</span></article>`).join('')||'<div class="empty">Belum ada pengajuan deposit.</div>'}</div>`;
 }
 window.review=async(id,ok)=>{const r=await sb.rpc('review_deposit',{p_deposit_id:id,p_approve:ok});if(r.error)return alert(r.error.message);draw()};
+
 async function orders(){
   const r=await sb.from('orders').select('*,profiles(full_name,email),services(name)').order('created_at',{ascending:false});
   if(r.error)throw r.error;
@@ -136,6 +137,8 @@ async function settings(){
   <label>Nama DANA<input id="sda" value="${esc(v.dana_name||v.owner_name||'Witama Store.ID')}"></label>
   <label>Nomor GoPay<input id="sg" value="${esc(v.gopay_number||'')}"></label>
   <label>Nama GoPay<input id="sga" value="${esc(v.gopay_name||v.owner_name||'Witama Store.ID')}"></label>
+  <label>Biaya Admin Deposit (%)<input id="sdp" type="number" min="0" step="0.01" value="${esc(v.deposit_fee_percent??'0.7')}"></label>
+  <small class="muted">Contoh 0.7 berarti biaya admin 0,7% dari nominal deposit. Isi 0 untuk tanpa biaya.</small>
   <h3 class="settings-subtitle">QRIS</h3>
   <div class="qris-admin-box">${v.qris_image_url?`<img src="${esc(v.qris_image_url)}" class="qris-admin-preview" alt="QRIS">`: '<div class="empty">Belum ada foto QRIS.</div>'}
   <label class="upload-box admin-upload"><span>↑</span><b>Pilih foto QRIS</b><small id="qris-name">JPG, PNG atau WEBP • maksimal 2MB</small><input id="qrisFile" type="file" accept="image/jpeg,image/png,image/webp" onchange="showQrisName(this)"></label></div>
@@ -161,7 +164,7 @@ window.showDeveloperName=input=>{const f=input?.files?.[0],el=document.getElemen
 window.saveSettings=async()=>{
   try{
     const val=id=>document.getElementById(id)?.value ?? '';
-    const map={panel_name:val('sn'),owner_name:val('so'),dana_number:val('sd'),dana_name:val('sda'),gopay_number:val('sg'),gopay_name:val('sga'),support_whatsapp:val('sw'),support_telegram:val('st'),support_instagram:val('si'),developer_name:val('sdn'),developer_bio:val('sdb'),telegram_chat_id:val('tc').trim(),telegram_notify_chat_id:val('tnc').trim(),telegram_bot_username:val('tbu').trim()};
+    const map={panel_name:val('sn'),owner_name:val('so'),dana_number:val('sd'),dana_name:val('sda'),gopay_number:val('sg'),gopay_name:val('sga'),deposit_fee_percent:val('sdp'),support_whatsapp:val('sw'),support_telegram:val('st'),support_instagram:val('si'),developer_name:val('sdn'),developer_bio:val('sdb'),telegram_chat_id:val('tc').trim(),telegram_notify_chat_id:val('tnc').trim(),telegram_bot_username:val('tbu').trim()};
     const telegramToken=document.getElementById('tb')?.value.trim(); const telegramChat=document.getElementById('tc')?.value.trim();
     if(telegramToken||telegramChat){const meTelegram=(await sb.auth.getUser()).data.user?.id||null;const tg=await sb.from('telegram_config').upsert({id:1,bot_token:telegramToken||null,chat_id:telegramChat||null,updated_by:meTelegram,updated_at:new Date().toISOString()},{onConflict:'id'});if(tg.error)throw tg.error;}
     const qf=document.getElementById('qrisFile')?.files?.[0];
