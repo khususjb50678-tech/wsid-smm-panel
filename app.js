@@ -304,7 +304,7 @@ POST /api/refill/status</pre>
   <p>Autentikasi memakai <b>api_id</b> dan <b>api_key</b>. API key user dikelola di backend.</p></section>`;
 }
 
-async async function render(){
+async function render(){
   try{
     let c=S.page==='home'?home():
       S.page==='order'?order():
