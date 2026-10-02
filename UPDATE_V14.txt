@@ -1,0 +1,26 @@
+WSID SMM PANEL V14 - DESAIN NOTIFIKASI TELEGRAM
+
+Yang diubah:
+- Format monitoring Telegram dibuat bergaya seperti referensi user.
+- Semua notifikasi memakai blockquote Telegram.
+- Isi penting memakai bold + italic.
+- Ada garis separator.
+- Ada header "Ws.ID | ALL MONITORING ✨".
+- Footer "🖤 Witama Store. ID".
+- Notifikasi user baru, login, deposit, status deposit, order, status order, dan saldo ikut format baru.
+- Test Telegram ikut format baru.
+- Emoji dikirim menggunakan chr() supaya tidak muncul sebagai teks mentah seperti "ðŸ...".
+- Link bot tetap ditambahkan bila Username Bot Telegram sudah diisi.
+
+CARA PASANG:
+1. Jangan jalankan RUN_ALL.sql.
+2. Jangan jalankan Edge Function.
+3. Di Supabase SQL Editor, jalankan hanya UPDATE_TELEGRAM_DESIGN_V14.sql.
+4. Klik Run dan pastikan Success.
+5. Di Admin > Settings > Notifikasi Telegram, klik Tes Telegram.
+
+Catatan:
+Warna nama pengirim/channel seperti hijau atau biru adalah bagian dari tampilan aplikasi Telegram dan tidak bisa diatur lewat HTML bot. Format isi pesan sudah dibuat mengikuti gaya referensi: blockquote, italic, bold, separator, header, dan footer.
+
+Keamanan:
+Token bot yang pernah terlihat di screenshot sebaiknya segera diganti melalui BotFather. Jangan kirim token baru ke chat.
