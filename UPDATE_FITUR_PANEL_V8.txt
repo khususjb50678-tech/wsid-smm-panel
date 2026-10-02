@@ -1,0 +1,17 @@
+UPDATE V8
+
+Perubahan:
+1. Tombol layanan menjadi BUY.
+2. Peraturan baru muncul setelah BUY dan dibuat bernomor agar rapi.
+3. QRIS sekarang di-upload langsung dari Admin > Settings, bukan URL.
+4. Bukti transfer menampilkan nama file setelah dipilih dan upload diperbaiki.
+5. Menu Pesanan diganti menjadi Riwayat.
+6. Riwayat berisi order + deposit dan setiap item memiliki ID.
+7. Admin > Riwayat memiliki pencarian berdasarkan ID.
+8. Telegram deposit diperbaiki: SQL memakai pg_net pada schema yang benar dan tidak lagi memanggil Edge Function.
+9. Admin > Settings memiliki tombol Tes Telegram.
+
+SQL tambahan yang perlu dijalankan hanya:
+UPDATE_FIX_V8.sql
+
+Setelah SQL berhasil, upload semua file website dari ZIP V8 ke ROOT GitHub.

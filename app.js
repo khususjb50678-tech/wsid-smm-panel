@@ -20,6 +20,14 @@ const cleanText=x=>{
   box.innerHTML=raw;
   return box.value.replace(/\u00a0/g,' ').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
 };
+const formatRules=x=>{
+  const t=cleanText(x||'').replace(/\r/g,'').replace(/[•●▪]/g,'\n').replace(/\s+-\s+/g,'\n');
+  let parts=t.split(/\n+/).map(v=>v.trim()).filter(Boolean);
+  if(parts.length<=1 && t.length>180) parts=t.split(/(?<=[.!?])\s+/).map(v=>v.trim()).filter(Boolean);
+  return parts.length?parts.map((v,i)=>`<div class=\"rule-item\"><b>${i+1}</b><span>${esc(v)}</span></div>`).join(''):'<div class=\"rule-item\"><b>1</b><span>Pastikan target dan jumlah pesanan sudah benar sebelum membeli.</span></div>';
+};
+const orderCode=id=>'WSO-'+String(id||'').replace(/-/g,'').slice(0,10).toUpperCase();
+const depositCode=id=>'DEP-'+String(id||'').replace(/-/g,'').slice(0,10).toUpperCase();
 const statusLabel=x=>({pending:'Menunggu',processing:'Diproses',success:'Sukses',completed:'Selesai',cancelled:'Dibatalkan',canceled:'Dibatalkan',failed:'Gagal',error:'Gagal',rejected:'Ditolak'})[String(x||'').toLowerCase()]||String(x||'Menunggu');
 
 function appEl(){return document.getElementById('app');}
@@ -134,7 +142,7 @@ function shell(c){
     <nav>${[
       ['home','⌂','Beranda'],
       ['order','＋','Order'],
-      ['orders','▣','Pesanan'],
+      ['orders','▣','Riwayat'],
       ['deposit','▤','Deposit'],
       ['profile','♙','Profil']
     ].map(x=>`<button class="${S.page===x[0]?'on':''}" onclick="nav('${x[0]}')">${x[1]}<small>${x[2]}</small></button>`).join('')}</nav>
@@ -158,7 +166,7 @@ function home(){
   <div class="balance"><span>Saldo Anda<br><b>${money(S.wallet?.balance)}</b></span><button class="btn red" onclick="nav('deposit')">Deposit</button></div>
   <div class="menus">${[
     ['order','🛒','Order','Pesan layanan sosial media'],
-    ['orders','▣','Pesanan','Lihat status pesanan'],
+    ['orders','▣','Riwayat','Lihat semua riwayat'],
     ['deposit','▤','Deposit','Tambah saldo'],
     ['profile','♙','Profil','Kelola akun'],
   ].map(x=>`<button onclick="nav('${x[0]}')"><strong>${x[1]}</strong><span><b>${x[2]}</b><small>${x[3]}</small></span>›</button>`).join('')}</div>
@@ -173,14 +181,13 @@ function order(){
 
 function cards(a){
   return a.length
-    ? a.map(s=>`<article>
+    ? a.map(s=>`<article class=\"service-card\">
       <i>${esc((s.name||'S')[0])}</i>
-      <span><b>${esc(s.name)}</b><small>${esc(cleanText(s.description||''))}</small><strong>${money(s.sale_price)}</strong></span>
-      <button class="btn mini" onclick="detail('${esc(s.id)}')">＋</button>
+      <span><b>${esc(s.name)}</b><small>${money(s.sale_price)} per 1000</small></span>
+      <button class=\"btn mini red buy-btn\" onclick=\"detail('${esc(s.id)}')\">Buy</button>
     </article>`).join('')
-    : '<div class="empty">Belum ada layanan. Admin perlu Sync Services.</div>';
+    : '<div class=\"empty\">Belum ada layanan. Admin perlu Sync Services.</div>';
 }
-
 window.filter=q=>{
   const el=document.getElementById('list');
   if(!el)return;
@@ -192,16 +199,18 @@ window.detail=id=>{
   const s=S.services.find(x=>x.id===id);
   if(!s)return alert('Layanan tidak ditemukan.');
 
-  appEl().innerHTML=shell(`<div class="head"><button onclick="nav('order')">←</button><h1>${esc(s.name)}</h1></div>
-  <section class="card">
-    <div class="service-desc">${esc(cleanText(s.description||'Belum ada deskripsi layanan.'))}</div>
-    <p>Harga: <b>${money(s.sale_price)}</b> per 1000</p>
-    <label>Target<input id="target"></label>
-    <label>Jumlah<input id="qty" type="number" min="${s.min_qty}" max="${s.max_qty}" value="${s.min_qty}"></label>
-    <button class="btn red wide" onclick="makeOrder('${esc(s.id)}')">Buat Pesanan</button>
+  appEl().innerHTML=shell(`<div class=\"head service-detail-head\"><button class=\"btn\" onclick=\"nav('order')\">← Kembali</button><div><h1>${esc(s.name)}</h1><small>${money(s.sale_price)} per 1000</small></div></div>
+  <section class=\"card\">
+    <h3>Peraturan Order</h3>
+    <div class=\"rules-box\">${formatRules(s.description||'')}</div>
+    <div class=\"order-form-box\">
+      <label>Target<input id=\"target\" placeholder=\"Masukkan link / username target\"></label>
+      <label>Jumlah<input id=\"qty\" type=\"number\" min=\"${s.min_qty}\" max=\"${s.max_qty}\" value=\"${s.min_qty}\"></label>
+      <small class=\"muted\">Min ${Number(s.min_qty||0).toLocaleString('id-ID')} • Max ${Number(s.max_qty||0).toLocaleString('id-ID')}</small>
+      <button class=\"btn red wide\" onclick=\"makeOrder('${esc(s.id)}')\">Buy Sekarang</button>
+    </div>
   </section>`);
 };
-
 window.makeOrder=async id=>{
   const s=S.services.find(x=>x.id===id);
   if(!s)return alert('Layanan tidak ditemukan.');
@@ -233,28 +242,33 @@ window.makeOrder=async id=>{
 
 async function orders(){
   try{
-    const r=await sb.from('orders')
-      .select('*,services(name,category)')
-      .eq('user_id',S.user.id)
-      .order('created_at',{ascending:false});
-
-    if(r.error)throw r.error;
-    const rows=r.data||[];
-    return `<div class="head order-head"><div><h1>Pesanan Saya</h1><small>Riwayat dan status pesanan kamu.</small></div><span class="count-pill">${rows.length} Pesanan</span></div>
-      <div class="order-list">${rows.map(o=>{
+    const [o,d]=await Promise.all([
+      sb.from('orders').select('*,services(name,category)').eq('user_id',S.user.id).order('created_at',{ascending:false}),
+      sb.from('deposits').select('*').eq('user_id',S.user.id).order('created_at',{ascending:false})
+    ]);
+    if(o.error)throw o.error;
+    if(d.error)throw d.error;
+    const ordersRows=o.data||[], depositsRows=d.data||[];
+    const items=[
+      ...ordersRows.map(x=>({kind:'order',date:x.created_at,id:x.id,code:orderCode(x.id),name:x.services?.name||'Layanan',status:x.status,target:x.target,qty:x.quantity,total:x.sale_total})),
+      ...depositsRows.map(x=>({kind:'deposit',date:x.created_at,id:x.id,code:depositCode(x.id),name:'Deposit Saldo',status:x.status,target:'Pengajuan deposit',qty:null,total:x.amount}))
+    ].sort((a,b)=>new Date(b.date)-new Date(a.date));
+    return `<div class=\"head order-head\"><div><h1>Riwayat</h1><small>Semua riwayat order dan deposit kamu.</small></div><span class=\"count-pill\">${items.length} Riwayat</span></div>
+      <div class=\"order-list\">${items.map(o=>{
         const st=String(o.status||'pending').toLowerCase();
-        return `<article class="order-card">
-          <div class="order-icon">${esc((o.services?.name||'L')[0])}</div>
-          <div class="order-main">
-            <div class="order-top"><b>${esc(o.services?.name||'Layanan')}</b><span class="status-badge status-${esc(st)}">${esc(statusLabel(st))}</span></div>
-            <small class="order-target">${esc(o.target)}</small>
-            <div class="order-meta"><span>Jumlah <b>${Number(o.quantity||0).toLocaleString('id-ID')}</b></span><span>Total <b>${money(o.sale_total)}</b></span></div>
+        return `<article class=\"order-card history-card\">
+          <div class=\"order-icon\">${o.kind==='deposit'?'Rp':esc((o.name||'L')[0])}</div>
+          <div class=\"order-main\">
+            <div class=\"order-top\"><b>${esc(o.name)}</b><span class=\"status-badge status-${esc(st)}\">${esc(statusLabel(st))}</span></div>
+            <small class=\"history-id\">ID: <b>${esc(o.code)}</b></small>
+            <small class=\"order-target\">${esc(o.target||'')}</small>
+            <div class=\"order-meta\">${o.kind==='order'?`<span>Jumlah <b>${Number(o.qty||0).toLocaleString('id-ID')}</b></span>`:''}<span>Total <b>${money(o.total)}</b></span><span>${new Date(o.date).toLocaleString('id-ID')}</span></div>
           </div>
         </article>`;
-      }).join('')||'<div class="empty">Belum ada pesanan.</div>'}</div>`;
+      }).join('')||'<div class=\"empty\">Belum ada riwayat.</div>'}</div>`;
   }catch(e){
-    console.error('Orders error:',e);
-    return `<div class="head"><h1>Pesanan Saya</h1><small>Riwayat dan status pesanan kamu.</small></div><div class="card"><p>Pesanan belum bisa dimuat.</p><small>${esc(e?.message||'Terjadi kesalahan.')}</small></div>`;
+    console.error('History error:',e);
+    return `<div class=\"head\"><h1>Riwayat</h1><small>Semua riwayat order dan deposit kamu.</small></div><div class=\"card\"><p>Riwayat belum bisa dimuat.</p><small>${esc(e?.message||'Terjadi kesalahan.')}</small></div>`;
   }
 }
 
@@ -271,7 +285,7 @@ function deposit(){
       <div class="dana-info"><b>${esc(setting('dana_name',setting('owner_name','Witama Store.ID')))}</b><strong>${esc(setting('dana_number','Nomor belum diatur'))}</strong><small>Transfer sesuai nominal yang kamu masukkan.</small></div>
       <button class="btn" onclick="navigator.clipboard?.writeText(setting('dana_number',''));alert('Nomor DANA disalin')">Salin</button>
     </div>
-    ${setting('qris_image_url')?`<div class="qris-wrap"><img src="${esc(setting('qris_image_url'))}" alt="QRIS"><small>Scan QRIS jika tersedia.</small></div>`:''}
+    ${setting('qris_image_url')?`<div class=\"qris-wrap\"><img src=\"${esc(setting('qris_image_url'))}\" alt=\"QRIS\"><small>Scan QRIS untuk pembayaran.</small></div>`:''}
   </section>
   <section class="deposit-card">
     <div class="section-label">Nominal Deposit</div>
@@ -280,11 +294,12 @@ function deposit(){
   </section>
   <section class="deposit-card">
     <div class="section-label">Bukti Pembayaran</div>
-    <label class="upload-box"><span>↑</span><b>Pilih bukti transfer</b><small>JPG, PNG atau WEBP • maksimal 2MB</small><input id="df" type="file" accept="image/*"></label>
+    <div class="upload-box" onclick="document.getElementById('df').click()"><span>↑</span><b>Pilih bukti transfer</b><small id="proof-name">JPG, PNG atau WEBP • maksimal 2MB</small><input id="df" type="file" accept="image/jpeg,image/png,image/webp" onchange="showProofName(this)"></div>
     <div class="deposit-note">Setelah mengirim bukti, status akan <b>Menunggu ACC Admin</b>. Silakan tunggu sampai admin memeriksa pengajuanmu.</div>
     <button class="btn red wide" onclick="sendDeposit()">Kirim Pengajuan Deposit</button>
   </section>`;
 }
+window.showProofName=input=>{const f=input?.files?.[0],el=document.getElementById('proof-name');if(el)el.textContent=f?`File dipilih: ${f.name}`:'JPG, PNG atau WEBP • maksimal 2MB';};
 window.sendDeposit=async()=>{
   try{
     const amount=Number(document.getElementById('da')?.value);
@@ -298,12 +313,6 @@ window.sendDeposit=async()=>{
 
     const r=await sb.from('deposits').insert({user_id:S.user.id,amount,proof_path:path}).select('id').single();
     if(r.error)throw r.error;
-
-    // Telegram is a notification channel only; a Telegram failure must not cancel a valid deposit.
-    try{
-      const tg=await sb.functions.invoke('telegram-deposit-notify',{body:{deposit_id:r.data.id}});
-      if(tg.error)console.warn('Telegram notification:',tg.error);
-    }catch(tgErr){console.warn('Telegram notification exception:',tgErr)}
 
     alert('Pengajuan deposit berhasil. Silakan tunggu sampai admin melakukan ACC.');
     nav('home');

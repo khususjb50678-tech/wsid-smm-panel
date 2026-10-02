@@ -15,7 +15,7 @@ async function init(){
 function out(x){document.getElementById('admin').innerHTML=`<main class="auth"><section class="card"><h1>WSID Admin</h1><p>${esc(x)}</p><a class="btn red" href="index.html">Kembali</a></section></main>`}
 function draw(){
   const tabs=['dashboard','deposits','orders','services','connection','users','finance','settings'];
-  const labels={dashboard:'Dashboard',deposits:'Deposit',orders:'Pesanan',services:'Layanan',connection:'Koneksi',users:'Users',finance:'Keuangan',settings:'Settings'};
+  const labels={dashboard:'Dashboard',deposits:'Deposit',orders:'Riwayat',services:'Layanan',connection:'Koneksi',users:'Users',finance:'Keuangan',settings:'Settings'};
   document.getElementById('admin').innerHTML=`<div class="shell admin-shell"><header><div class="brand"><i>W</i><b>WSID<small>ADMIN</small></b></div><div class="admin-actions"><button class="bell" onclick="tab='deposits';draw()">🔔<span id="depositBadge" class="notify-badge">0</span></button><button onclick="location.href='index.html'">↗</button></div></header><main><div class="tabs">${tabs.map(x=>`<button class="${tab===x?'on':''}" onclick="tab='${x}';draw()">${labels[x]}</button>`).join('')}</div><div id="view">Loading...</div></main></div>`;
   loadTab();
 }
@@ -48,9 +48,23 @@ async function deposits(){
 }
 window.review=async(id,ok)=>{const r=await sb.rpc('review_deposit',{p_deposit_id:id,p_approve:ok});if(r.error)return alert(r.error.message);draw()};
 async function orders(){
-  const r=await sb.from('orders').select('*,profiles(full_name),services(name)').order('created_at',{ascending:false});
-  return `<h1>Pesanan</h1><div class="list">${(r.data||[]).map(o=>`<article><span><b>${esc(o.profiles?.full_name)}</b><small>${esc(o.services?.name)} • ${esc(o.target)}</small></span><span><b>${money(o.sale_total)}</b><small>${esc(o.status)}</small></span></article>`).join('')||'<div class="empty">Belum ada pesanan.</div>'}</div>`;
+  const r=await sb.from('orders').select('*,profiles(full_name,email),services(name)').order('created_at',{ascending:false});
+  if(r.error)throw r.error;
+  const rows=r.data||[];
+  return `<h1>Riwayat</h1><div class=\"history-search\"><input id=\"orderSearch\" placeholder=\"Cari ID riwayat...\" oninput=\"filterAdminHistory(this.value)\"></div><div id=\"adminHistoryList\" class=\"list\">${adminHistoryCards(rows)}</div>`;
 }
+function adminHistoryCards(rows){
+  return (rows||[]).map(o=>{
+    const code='WSO-'+String(o.id||'').replace(/-/g,'').slice(0,10).toUpperCase();
+    return `<article class=\"admin-history-card\" data-id=\"${esc(o.id)}\"><span><b>${esc(code)}</b><small>${esc(o.profiles?.full_name||'User')} • ${esc(o.services?.name||'Layanan')}</small><small>Target: ${esc(o.target||'-')}</small></span><span><b>${money(o.sale_total)}</b><small>${esc(o.status||'pending')}</small><small>${new Date(o.created_at).toLocaleString('id-ID')}</small></span></article>`;
+  }).join('')||'<div class=\"empty\">Belum ada riwayat order.</div>';
+}
+window.filterAdminHistory=q=>{
+  const el=document.getElementById('adminHistoryList');if(!el)return;
+  const v=String(q||'').trim().toLowerCase();
+  [...el.children].forEach(x=>{x.style.display=(!v||String(x.dataset.id||'').toLowerCase().includes(v)||x.innerText.toLowerCase().includes(v))?'':'none';});
+};
+
 async function services(){
   const r=await sb.from('services').select('*').order('name');
   return `<h1>Layanan</h1><button class="btn red" onclick="sync()">Sync Layanan</button><div class="list">${(r.data||[]).map(s=>`<article><span><b>${esc(s.name)}</b><small>Biaya dasar ${money(s.provider_price)} • Jual ${money(s.sale_price)}</small></span><button class="btn mini" onclick="markup('${s.id}',${Number(s.markup_value||0)},'${esc(s.markup_type||'percent')}')">Markup</button></article>`).join('')||'<div class="empty">Belum ada layanan.</div>'}</div>`;
@@ -74,9 +88,52 @@ async function finance(){
 }
 async function settings(){
   const r=await sb.from('panel_settings').select('*');const v={};(r.data||[]).forEach(x=>v[x.key]=x.value);
-  return `<h1>Settings</h1><section class="card"><h3>Branding & Kontak</h3><label>Nama Panel<input id="sn" value="${esc(v.panel_name||'WSID SMM PANEL')}"></label><label>Nama Owner<input id="so" value="${esc(v.owner_name||'Witama Store.ID')}"></label><label>Nomor DANA<input id="sd" value="${esc(v.dana_number||'')}"></label><label>Nama DANA<input id="sda" value="${esc(v.dana_name||'Witama Store.ID')}"></label><label>URL QRIS<input id="sq" value="${esc(v.qris_image_url||'')}"></label><label>WhatsApp Support<input id="sw" value="${esc(v.support_whatsapp||'')}"></label><label>Telegram Support<input id="st" value="${esc(v.support_telegram||'')}"></label><label>Instagram Support<input id="si" value="${esc(v.support_instagram||'')}"></label><h3 class="settings-subtitle">Notifikasi Telegram</h3><label>Telegram Chat ID<input id="tc" value="${esc(v.telegram_chat_id||'')}" placeholder="Contoh: 123456789"></label><small class="muted">Token bot disimpan sebagai secret di Supabase, bukan di website.</small><button class="btn red wide" onclick="saveSettings()">Simpan Semua Settings</button><p id="sm" class="msg"></p></section>`;
+  return `<h1>Settings</h1><section class=\"card\"><h3>Branding & Kontak</h3>
+  <label>Nama Panel<input id=\"sn\" value=\"${esc(v.panel_name||'WSID SMM PANEL')}\"></label>
+  <label>Nama Owner<input id=\"so\" value=\"${esc(v.owner_name||'Witama Store.ID')}\"></label>
+  <label>Nomor DANA<input id=\"sd\" value=\"${esc(v.dana_number||'')}\"></label>
+  <label>Nama DANA<input id=\"sda\" value=\"${esc(v.dana_name||'Witama Store.ID')}\"></label>
+  <h3 class=\"settings-subtitle\">QRIS</h3>
+  <div class=\"qris-admin-box\">${v.qris_image_url?`<img src=\"${esc(v.qris_image_url)}\" class=\"qris-admin-preview\" alt=\"QRIS\">`: '<div class=\"empty\">Belum ada foto QRIS.</div>'}
+  <label class=\"upload-box admin-upload\"><span>↑</span><b>Pilih foto QRIS</b><small id=\"qris-name\">JPG, PNG atau WEBP • maksimal 2MB</small><input id=\"qrisFile\" type=\"file\" accept=\"image/jpeg,image/png,image/webp\" onchange=\"showQrisName(this)\"></label></div>
+  <label>WhatsApp Support<input id=\"sw\" value=\"${esc(v.support_whatsapp||'')}\"></label>
+  <label>Telegram Support<input id=\"st\" value=\"${esc(v.support_telegram||'')}\"></label>
+  <label>Instagram Support<input id=\"si\" value=\"${esc(v.support_instagram||'')}\"></label>
+  <h3 class=\"settings-subtitle\">Notifikasi Telegram</h3>
+  <label>Telegram Chat ID<input id=\"tc\" value=\"${esc(v.telegram_chat_id||'')}\" placeholder=\"Contoh: 123456789\"></label>
+  <small class=\"muted\">Token bot disimpan sebagai secret di Supabase Vault.</small>
+  <div class=\"row\"><button class=\"btn red\" onclick=\"saveSettings()\">Simpan Settings</button><button class=\"btn\" onclick=\"testTelegram()\">Tes Telegram</button></div><p id=\"sm\" class=\"msg\"></p></section>`;
 }
-window.saveSettings=async()=>{const map={panel_name:document.getElementById('sn').value,owner_name:document.getElementById('so').value,dana_number:document.getElementById('sd').value,dana_name:document.getElementById('sda').value,qris_image_url:document.getElementById('sq').value,support_whatsapp:document.getElementById('sw').value,support_telegram:document.getElementById('st').value,support_instagram:document.getElementById('si').value,telegram_chat_id:document.getElementById('tc').value.trim()};const rows=Object.entries(map).map(([key,value])=>({key,value,updated_by:null,updated_at:new Date().toISOString()}));const me=(await sb.auth.getUser()).data.user;rows.forEach(x=>x.updated_by=me?.id||null);const r=await sb.from('panel_settings').upsert(rows,{onConflict:'key'});if(r.error)return alert(r.error.message);alert('Semua settings tersimpan.');draw()};
+window.showQrisName=input=>{const f=input?.files?.[0],el=document.getElementById('qris-name');if(el)el.textContent=f?`File dipilih: ${f.name}`:'JPG, PNG atau WEBP • maksimal 2MB';};
+window.saveSettings=async()=>{
+  try{
+    const map={panel_name:document.getElementById('sn').value,owner_name:document.getElementById('so').value,dana_number:document.getElementById('sd').value,dana_name:document.getElementById('sda').value,support_whatsapp:document.getElementById('sw').value,support_telegram:document.getElementById('st').value,support_instagram:document.getElementById('si').value,telegram_chat_id:document.getElementById('tc').value.trim()};
+    const qf=document.getElementById('qrisFile')?.files?.[0];
+    if(qf){
+      if(qf.size>2*1024*1024)return alert('Ukuran QRIS maksimal 2MB.');
+      const path=`qris/${Date.now()}-${qf.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
+      const u=await sb.storage.from('panel-assets').upload(path,qf,{upsert:false,contentType:qf.type});
+      if(u.error)throw u.error;
+      const pub=sb.storage.from('panel-assets').getPublicUrl(path);
+      map.qris_image_url=pub.data.publicUrl;
+    }
+    const rows=Object.entries(map).map(([key,value])=>({key,value,updated_by:null,updated_at:new Date().toISOString()}));
+    const me=(await sb.auth.getUser()).data.user;rows.forEach(x=>x.updated_by=me?.id||null);
+    const r=await sb.from('panel_settings').upsert(rows,{onConflict:'key'});
+    if(r.error)throw r.error;
+    alert('Settings tersimpan.');draw();
+  }catch(e){alert(e?.message||'Gagal menyimpan settings.');}
+};
+window.testTelegram=async()=>{
+  const chat=document.getElementById('tc')?.value.trim();
+  if(!chat)return alert('Isi Telegram Chat ID dulu.');
+  const save=await sb.from('panel_settings').upsert({key:'telegram_chat_id',value:chat,updated_by:(await sb.auth.getUser()).data.user?.id||null,updated_at:new Date().toISOString()},{onConflict:'key'});
+  if(save.error)return alert(save.error.message);
+  const r=await sb.rpc('test_telegram_deposit_notification');
+  if(r.error)return alert(r.error.message);
+  alert(r.data?.msg||'Notifikasi Telegram dikirim.');
+};
+
 async function updateDepositNotification(showToast=true){
   const r=await sb.from('deposits').select('id',{count:'exact',head:true}).eq('status','pending');
   if(r.error)return;
