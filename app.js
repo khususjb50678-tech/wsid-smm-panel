@@ -274,12 +274,13 @@ async function orders(){
 
 function paymentLogo(type,label){
   const t=String(type||'').toLowerCase();
-  const icons={
-    dana:`<svg viewBox="0 0 96 96" aria-hidden="true"><rect x="6" y="6" width="84" height="84" rx="26" fill="#1188ff"/><path d="M28 26h24c13 0 24 10.7 24 24S65 74 52 74H28V26Zm12 11v26h11c7 0 13-5.8 13-13S58 37 51 37H40Z" fill="#fff"/></svg>`,
-    gopay:`<svg viewBox="0 0 96 96" aria-hidden="true"><rect x="6" y="6" width="84" height="84" rx="26" fill="#00a878"/><circle cx="44" cy="48" r="25" fill="none" stroke="#fff" stroke-width="10"/><path d="M47 48h25" stroke="#00a878" stroke-width="13"/><path d="M47 48h25" stroke="#fff" stroke-width="7" stroke-linecap="round"/></svg>`,
-    qris:`<svg viewBox="0 0 96 96" aria-hidden="true"><rect x="6" y="6" width="84" height="84" rx="26" fill="#fff"/><g fill="#111"><path d="M17 17h24v24H17V17Zm7 7v10h10V24H24ZM55 17h24v24H55V17Zm7 7v10h10V24H62ZM17 55h24v24H17V55Zm7 7v10h10V62H24Z"/><path d="M55 55h10v10H55V55Zm14 0h10v14H69V55ZM55 69h10v10H55V69Zm14 5h10v5H69v-5Z"/></g></svg>`
-  };
-  return `<button class="payment-logo ${t}" onclick="showPayment('${esc(t)}',this)" aria-label="${esc(label)}" title="${esc(label)}">${icons[t]||''}</button>`;
+  const logo=setting(t==='dana'?'dana_logo_url':t==='gopay'?'gopay_logo_url':'qris_logo_url','');
+  const fallback={
+    dana:`<span class="payment-fallback dana-fallback">D</span>`,
+    gopay:`<span class="payment-fallback gopay-fallback">G</span>`,
+    qris:`<span class="payment-fallback qris-fallback">QR</span>`
+  }[t]||'';
+  return `<button class="payment-logo ${t}" onclick="showPayment('${esc(t)}',this)" aria-label="${esc(label)}" title="${esc(label)}">${logo?`<img src="${esc(logo)}" alt="${esc(label)} logo">`:fallback}</button>`;
 }
 window.showPayment=(type,el)=>{
   const box=document.getElementById('payment-detail'); if(!box)return;

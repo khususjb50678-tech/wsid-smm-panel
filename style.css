@@ -90,3 +90,13 @@ textarea{width:100%;padding:12px;background:#080d13;border:1px solid #26333f;bor
 .contact-logo{width:48px;height:48px;border-radius:15px}
 .contact-logo svg{width:27px;height:27px}
 @media(max-width:520px){.payment-logo{width:72px;height:72px;flex-basis:72px}.developer-contact{align-items:flex-start}.contact-logos{flex-wrap:wrap}}
+
+/* V24 payment-logo administration */
+.payment-logo img{width:100%;height:100%;object-fit:contain;border-radius:22px;display:block}
+.payment-fallback{display:grid;place-items:center;width:100%;height:100%;font-weight:900;font-size:26px;border-radius:22px}
+.dana-fallback{background:#1188ff;color:#fff}.gopay-fallback{background:#00a878;color:#fff}.qris-fallback{background:#fff;color:#111}
+.payment-logo-settings{display:grid;grid-template-columns:1fr;gap:12px;margin:10px 0 16px}
+.payment-logo-setting{border:1px solid var(--line,#27313d);border-radius:18px;padding:14px;background:rgba(255,255,255,.02)}
+.payment-admin-logo,.payment-admin-placeholder{width:74px;height:74px;border-radius:18px;object-fit:contain;display:block;margin:10px 0;border:1px solid var(--line,#27313d)}
+.payment-admin-placeholder{display:grid;place-items:center;font-weight:900;font-size:24px;background:#111;color:#fff}
+@media(min-width:700px){.payment-logo-settings{grid-template-columns:repeat(3,1fr)}}

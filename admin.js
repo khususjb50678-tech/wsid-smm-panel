@@ -139,7 +139,14 @@ async function settings(){
   <label>Nama GoPay<input id="sga" value="${esc(v.gopay_name||v.owner_name||'Witama Store.ID')}"></label>
   <label>Biaya Admin Deposit (%)<input id="sdp" type="number" min="0" step="0.01" value="${esc(v.deposit_fee_percent??'0.7')}"></label>
   <small class="muted">Contoh 0.7 berarti biaya admin 0,7% dari nominal deposit. Isi 0 untuk tanpa biaya.</small>
-  <h3 class="settings-subtitle">QRIS</h3>
+  <h3 class="settings-subtitle">Logo Pembayaran</h3>
+  <small class="muted">Logo di halaman Deposit sepenuhnya diatur dari sini. Yang tampil di tombol hanya gambar/logo, tanpa tulisan DANA/GoPay/QRIS.</small>
+  <div class="payment-logo-settings">
+    <div class="payment-logo-setting"><b>Logo DANA</b>${v.dana_logo_url?`<img src="${esc(v.dana_logo_url)}" class="payment-admin-logo" alt="Logo DANA">`: '<div class="payment-admin-placeholder">D</div>'}<label class="upload-box admin-upload"><span>↑</span><b>Pilih logo DANA</b><small id="dana-logo-name">JPG, PNG atau WEBP • maksimal 2MB</small><input id="danaLogoFile" type="file" accept="image/jpeg,image/png,image/webp" onchange="showPaymentLogoName(this,'dana-logo-name')"></label></div>
+    <div class="payment-logo-setting"><b>Logo GoPay</b>${v.gopay_logo_url?`<img src="${esc(v.gopay_logo_url)}" class="payment-admin-logo" alt="Logo GoPay">`: '<div class="payment-admin-placeholder">G</div>'}<label class="upload-box admin-upload"><span>↑</span><b>Pilih logo GoPay</b><small id="gopay-logo-name">JPG, PNG atau WEBP • maksimal 2MB</small><input id="gopayLogoFile" type="file" accept="image/jpeg,image/png,image/webp" onchange="showPaymentLogoName(this,'gopay-logo-name')"></label></div>
+    <div class="payment-logo-setting"><b>Logo QRIS</b>${v.qris_logo_url?`<img src="${esc(v.qris_logo_url)}" class="payment-admin-logo" alt="Logo QRIS">`: '<div class="payment-admin-placeholder">QR</div>'}<label class="upload-box admin-upload"><span>↑</span><b>Pilih logo QRIS</b><small id="qris-logo-name">JPG, PNG atau WEBP • maksimal 2MB</small><input id="qrisLogoFile" type="file" accept="image/jpeg,image/png,image/webp" onchange="showPaymentLogoName(this,'qris-logo-name')"></label></div>
+  </div>
+  <h3 class="settings-subtitle">Foto QRIS Pembayaran</h3>
   <div class="qris-admin-box">${v.qris_image_url?`<img src="${esc(v.qris_image_url)}" class="qris-admin-preview" alt="QRIS">`: '<div class="empty">Belum ada foto QRIS.</div>'}
   <label class="upload-box admin-upload"><span>↑</span><b>Pilih foto QRIS</b><small id="qris-name">JPG, PNG atau WEBP • maksimal 2MB</small><input id="qrisFile" type="file" accept="image/jpeg,image/png,image/webp" onchange="showQrisName(this)"></label></div>
   <h3 class="settings-subtitle">Developer Website</h3>
@@ -163,6 +170,7 @@ async function settings(){
 }
 window.showQrisName=input=>{const f=input?.files?.[0],el=document.getElementById('qris-name');if(el)el.textContent=f?`File dipilih: ${f.name}`:'JPG, PNG atau WEBP • maksimal 2MB';};
 window.showDeveloperName=input=>{const f=input?.files?.[0],el=document.getElementById('developer-name');if(el)el.textContent=f?`File dipilih: ${f.name}`:'JPG, PNG atau WEBP • maksimal 2MB';};
+window.showPaymentLogoName=(input,id)=>{const f=input?.files?.[0],el=document.getElementById(id);if(el)el.textContent=f?`File dipilih: ${f.name}`:'JPG, PNG atau WEBP • maksimal 2MB';};
 window.saveSettings=async()=>{
   try{
     const val=id=>document.getElementById(id)?.value ?? '';
@@ -171,6 +179,9 @@ window.saveSettings=async()=>{
     if(telegramToken||telegramChat){const meTelegram=(await sb.auth.getUser()).data.user?.id||null;const tg=await sb.from('telegram_config').upsert({id:1,bot_token:telegramToken||null,chat_id:telegramChat||null,updated_by:meTelegram,updated_at:new Date().toISOString()},{onConflict:'id'});if(tg.error)throw tg.error;}
     const qf=document.getElementById('qrisFile')?.files?.[0];
     const df=document.getElementById('developerFile')?.files?.[0];
+    const dlf=document.getElementById('danaLogoFile')?.files?.[0];
+    const glf=document.getElementById('gopayLogoFile')?.files?.[0];
+    const qlf=document.getElementById('qrisLogoFile')?.files?.[0];
     if(qf){
       if(qf.size>2*1024*1024)return alert('Ukuran QRIS maksimal 2MB.');
       const path=`qris/${Date.now()}-${qf.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
@@ -178,6 +189,15 @@ window.saveSettings=async()=>{
       if(u.error)throw u.error;
       const pub=sb.storage.from('panel-assets').getPublicUrl(path);
       map.qris_image_url=pub.data.publicUrl;
+    }
+    for(const item of [[dlf,'dana_logo_url','dana-logo'],[glf,'gopay_logo_url','gopay-logo'],[qlf,'qris_logo_url','qris-logo']]){
+      const [file,key,folder]=item;
+      if(!file)continue;
+      if(file.size>2*1024*1024)return alert(`Ukuran ${folder} maksimal 2MB.`);
+      const path=`payment-logos/${folder}-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
+      const u=await sb.storage.from('panel-assets').upload(path,file,{upsert:false,contentType:file.type});
+      if(u.error)throw u.error;
+      map[key]=sb.storage.from('panel-assets').getPublicUrl(path).data.publicUrl;
     }
     if(df){
       if(df.size>2*1024*1024)return alert('Ukuran logo developer maksimal 2MB.');
