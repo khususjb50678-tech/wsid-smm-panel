@@ -1,5 +1,6 @@
 const C=window.WSID_CONFIG||{};
 const S={page:'home',user:null,profile:null,wallet:{balance:0},services:[],settings:{}};
+let orderStatusPoll=null;
 const setting=(k,f='')=>S.settings?.[k]??f;
 
 const money=n=>new Intl.NumberFormat('id-ID',{
@@ -28,7 +29,7 @@ const formatRules=x=>{
 };
 const orderCode=id=>'WSO-'+String(id||'').replace(/-/g,'').slice(0,10).toUpperCase();
 const depositCode=id=>'DEP-'+String(id||'').replace(/-/g,'').slice(0,10).toUpperCase();
-const statusLabel=x=>({pending:'Menunggu',processing:'Diproses',success:'Sukses',completed:'Selesai',cancelled:'Dibatalkan',canceled:'Dibatalkan',failed:'Gagal',error:'Gagal',rejected:'Ditolak'})[String(x||'').toLowerCase()]||String(x||'Menunggu');
+const statusLabel=x=>({pending:'Menunggu',processing:'Diproses',success:'Sukses',completed:'Selesai',partial:'Sebagian',cancelled:'Dibatalkan',canceled:'Dibatalkan',failed:'Gagal',error:'Gagal',rejected:'Ditolak'})[String(x||'').toLowerCase()]||String(x||'Menunggu');
 
 function appEl(){return document.getElementById('app');}
 
@@ -154,6 +155,27 @@ function infoText(x, fallback){
   return parts.length?parts.map(v=>`<p>${esc(v)}</p>`).join(''):`<p>${esc(fallback||'')}</p>`;
 }
 
+async function syncMyOrderStatuses(){
+  try{
+    const r=await sb.rpc('sync_my_order_statuses');
+    if(r.error)console.warn('Order status sync:',r.error);
+    return r.data||null;
+  }catch(e){
+    console.warn('Order status sync exception:',e);
+    return null;
+  }
+}
+function startOrderStatusPolling(){
+  if(orderStatusPoll)return;
+  orderStatusPoll=setInterval(async()=>{
+    if(S.page!=='orders'){clearInterval(orderStatusPoll);orderStatusPoll=null;return;}
+    const r=await syncMyOrderStatuses();
+    if(r && (Number(r.updated||0)>0 || Number(r.checked||0)>0)) await render();
+  },20000);
+}
+function stopOrderStatusPolling(){
+  if(orderStatusPoll){clearInterval(orderStatusPoll);orderStatusPoll=null;}
+}
 function nav(p){S.page=p;render();}
 
 function shell(c){
@@ -296,6 +318,8 @@ window.makeOrder=async id=>{
 
 async function orders(){
   try{
+    // Pull the latest status from the provider before rendering history.
+    await syncMyOrderStatuses();
     const [o,d]=await Promise.all([
       sb.from('orders').select('*,services(name,category)').eq('user_id',S.user.id).order('created_at',{ascending:false}),
       sb.from('deposits').select('*').eq('user_id',S.user.id).order('created_at',{ascending:false})
@@ -439,6 +463,7 @@ async function profile(){
 }
 async function render(){
   try{
+    if(S.page==='orders') startOrderStatusPolling(); else stopOrderStatusPolling();
     let c=S.page==='home'?home():
       S.page==='order'?order():
       S.page==='deposit'?deposit():
