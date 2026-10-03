@@ -1,13 +1,9 @@
--- WSID SMM PANEL V34 - PROVIDER STATUS SYNC ONLY
--- IMPORTANT: This patch changes ONLY provider order-status reading.
--- Order creation/submission, deposits, Telegram, target privacy, news/terms,
--- Safe Browser and all other existing features are untouched.
---
--- The existing submit_order() implementation for FAYUPEDIA uses:
---   api_id=<provider api_id>
---   api_key=<provider api_key>
---   endpoint: <base_url>/order
--- Therefore status checks use the SAME provider credentials and endpoint.
+-- WSID STATUS PATCH ONLY
+-- Membaca status order FAYUPEDIA tanpa mengubah submit_order / deposit / Telegram / fitur lain.
+-- Urutan request:
+--   1) <base_url>/status  : api_id + api_key + order
+--   2) fallback <base_url>/order : api_id + api_key + action=status + order
+-- ID yang dipakai SELALU provider_order_id (contoh 5519511), bukan UUID order WSID.
 
 create or replace function public.wsid_provider_order_status(p_order_id text)
 returns jsonb
@@ -20,13 +16,18 @@ declare
   v_provider record;
   v_provider_order text;
   v_body text;
-  v_http_status integer;
-  v_content text;
-  v_json jsonb;
-  v_remote text;
-  v_local text;
+  v_http_status integer := 0;
+  v_content text := '';
+  v_json jsonb := '{}'::jsonb;
+  v_remote text := '';
+  v_local text := '';
   v_changed boolean := false;
   v_allowed boolean := false;
+  v_base text;
+  v_endpoint text := '';
+  v_msg text := '';
+  v_attempt integer := 0;
+  v_status_found boolean := false;
 begin
   select o.* into v_order
   from public.orders o
@@ -37,12 +38,12 @@ begin
     return jsonb_build_object('status',false,'msg','Order tidak ditemukan.');
   end if;
 
-  -- Only the owner or an admin may force a provider status check.
   select exists(
     select 1 from public.profiles p
     where p.id=auth.uid() and p.role='admin'
   ) or v_order.user_id=auth.uid()
   into v_allowed;
+
   if not v_allowed then
     return jsonb_build_object('status',false,'msg','Akses ditolak.');
   end if;
@@ -57,10 +58,8 @@ begin
     return jsonb_build_object('status',false,'msg','Koneksi provider FAYUPEDIA tidak aktif.');
   end if;
 
-  -- IMPORTANT: provider_order_id is the ID returned by FAYUPEDIA (example: 5519511).
-  -- Never use the UUID of public.orders when a provider order ID exists.
-  v_provider_order := coalesce(to_jsonb(v_order)->>'provider_order_id', '');
-  if coalesce(trim(v_provider_order),'')='' then
+  v_provider_order := trim(coalesce(to_jsonb(v_order)->>'provider_order_id',''));
+  if v_provider_order='' then
     return jsonb_build_object('status',false,'msg','Provider order ID belum tersedia.');
   end if;
 
@@ -68,52 +67,102 @@ begin
     return jsonb_build_object('status',false,'msg','Base URL/API key provider belum lengkap.');
   end if;
 
-  -- MATCH THE EXISTING WORKING submit_order() FORMAT:
-  -- api_id + api_key -> <base_url>/order
-  -- Status request adds action=status and the FAYUPEDIA provider order ID.
-  v_body := 'api_id='||extensions.urlencode(trim(v_provider.api_id::varchar))
+  v_base := regexp_replace(trim(v_provider.base_url), '/+$', '');
+
+  -- ============================================================
+  -- ATTEMPT 1: endpoint status yang terpisah.
+  -- ============================================================
+  v_attempt := 1;
+  v_endpoint := v_base||'/status';
+  v_body := 'api_id='||extensions.urlencode(trim(coalesce(v_provider.api_id::varchar,'')))
          ||'&api_key='||extensions.urlencode(trim(v_provider.api_key))
-         ||'&action=status'
          ||'&order='||extensions.urlencode(v_provider_order);
 
   begin
-    select r.status, r.content
-      into v_http_status, v_content
-    from extensions.http_post(
-      regexp_replace(trim(v_provider.base_url), '/+$', '')||'/order',
-      v_body,
-      'application/x-www-form-urlencoded'
-    ) r;
+    perform extensions.http_set_curlopt('CURLOPT_TIMEOUT','20');
+    select r.status, r.content into v_http_status, v_content
+    from extensions.http_post(v_endpoint,v_body,'application/x-www-form-urlencoded') r;
   exception when others then
-    return jsonb_build_object('status',false,'msg','Gagal menghubungi provider: '||sqlerrm);
+    v_http_status := 0;
+    v_content := '';
+    v_msg := sqlerrm;
   end;
 
-  if coalesce(v_http_status,0) < 200 or coalesce(v_http_status,0) >= 300 then
-    return jsonb_build_object(
-      'status',false,
-      'msg','Provider HTTP '||coalesce(v_http_status,0)::text,
-      'http_status',v_http_status
-    );
+  if v_http_status between 200 and 299 then
+    begin
+      v_json := coalesce(v_content,'{}')::jsonb;
+    exception when others then
+      v_json := '{}'::jsonb;
+    end;
+
+    -- Jangan membaca wrapper status=true/success sebagai status order.
+    v_remote := lower(trim(coalesce(
+      v_json->'data'->>'status',
+      v_json->'data'->'order'->>'status',
+      v_json->'order'->>'status',
+      v_json->>'order_status',
+      v_json->'data'->>'order_status',
+      case when lower(trim(coalesce(v_json->>'status',''))) in
+        ('pending','processing','success','completed','complete','partial','cancelled','canceled','failed','error','rejected')
+        then v_json->>'status' else null end,
+      ''
+    )));
+
+    if v_remote<>'' then v_status_found := true; end if;
   end if;
 
-  begin
-    v_json := coalesce(v_content,'{}')::jsonb;
-  exception when others then
+  -- ============================================================
+  -- ATTEMPT 2: fallback ke endpoint /order yang dipakai submit_order.
+  -- ============================================================
+  if not v_status_found then
+    v_attempt := 2;
+    v_endpoint := v_base||'/order';
+    v_body := 'api_id='||extensions.urlencode(trim(coalesce(v_provider.api_id::varchar,'')))
+           ||'&api_key='||extensions.urlencode(trim(v_provider.api_key))
+           ||'&action=status'
+           ||'&order='||extensions.urlencode(v_provider_order);
+
+    begin
+      perform extensions.http_set_curlopt('CURLOPT_TIMEOUT','20');
+      select r.status, r.content into v_http_status, v_content
+      from extensions.http_post(v_endpoint,v_body,'application/x-www-form-urlencoded') r;
+    exception when others then
+      v_http_status := 0;
+      v_content := '';
+      v_msg := sqlerrm;
+    end;
+
+    begin
+      v_json := coalesce(v_content,'{}')::jsonb;
+    exception when others then
+      v_json := '{}'::jsonb;
+    end;
+
+    v_remote := lower(trim(coalesce(
+      v_json->'data'->>'status',
+      v_json->'data'->'order'->>'status',
+      v_json->'order'->>'status',
+      v_json->>'order_status',
+      v_json->'data'->>'order_status',
+      case when lower(trim(coalesce(v_json->>'status',''))) in
+        ('pending','processing','success','completed','complete','partial','cancelled','canceled','failed','error','rejected')
+        then v_json->>'status' else null end,
+      ''
+    )));
+    if v_remote<>'' then v_status_found := true; end if;
+  end if;
+
+  if not v_status_found then
     return jsonb_build_object(
       'status',false,
-      'msg','Respons provider bukan JSON yang valid.',
-      'raw',left(coalesce(v_content,''),500)
+      'updated',false,
+      'msg',coalesce(nullif(v_json->>'msg',''),nullif(v_json->>'message',''),nullif(v_msg,''),'Provider tidak mengembalikan status order.'),
+      'provider_order_id',v_provider_order,
+      'http_status',v_http_status,
+      'endpoint',v_endpoint,
+      'attempt',v_attempt
     );
-  end;
-
-  -- Accept common response shapes without changing order-creation logic.
-  v_remote := lower(trim(coalesce(
-    v_json->>'status',
-    v_json->'data'->>'status',
-    v_json->'order'->>'status',
-    v_json->'data'->'order'->>'status',
-    ''
-  )));
+  end if;
 
   if v_remote in ('completed','complete','success','successful','done','finished') then
     v_local := 'success';
@@ -126,31 +175,33 @@ begin
   elsif v_remote in ('cancel','canceled','cancelled','failed','failure','error','rejected','reject','refunded','refund') then
     v_local := 'failed';
   else
-    -- Unknown provider status: do not incorrectly mark the order failed.
     return jsonb_build_object(
-      'status',true,
-      'updated',false,
+      'status',true,'updated',false,
       'order_id',v_order.id::text,
       'provider_order_id',v_provider_order,
       'provider_status',v_remote,
-      'local_status',v_order.status
+      'local_status',v_order.status,
+      'http_status',v_http_status,
+      'endpoint',v_endpoint,
+      'attempt',v_attempt
     );
   end if;
 
-  -- Keep provider_status in sync too, while preserving the existing local status.
   if to_jsonb(v_order) ? 'provider_status' then
     if lower(coalesce(v_order.status::text,'')) is distinct from v_local
        or lower(coalesce(to_jsonb(v_order)->>'provider_status','')) is distinct from v_remote then
       update public.orders
       set status=v_local,
-          provider_status=v_remote
+          provider_status=v_remote,
+          updated_at=now()
       where id::text=p_order_id;
       v_changed := true;
     end if;
   else
     if lower(coalesce(v_order.status::text,'')) is distinct from v_local then
       update public.orders
-      set status=v_local
+      set status=v_local,
+          updated_at=now()
       where id::text=p_order_id;
       v_changed := true;
     end if;
@@ -163,16 +214,17 @@ begin
     'provider_order_id',v_provider_order,
     'provider_status',v_remote,
     'local_status',v_local,
-    'http_status',v_http_status
+    'http_status',v_http_status,
+    'endpoint',v_endpoint,
+    'attempt',v_attempt
   );
 exception when others then
-  return jsonb_build_object('status',false,'msg','Sinkronisasi gagal: '||sqlerrm);
+  return jsonb_build_object('status',false,'msg','Sinkronisasi gagal: '||sqlerrm,'provider_order_id',v_provider_order);
 end;
 $fn$;
 
 grant execute on function public.wsid_provider_order_status(text) to authenticated;
 
--- Sync all active orders belonging to the logged-in user.
 create or replace function public.sync_my_order_statuses()
 returns jsonb
 language plpgsql
@@ -214,7 +266,3 @@ end;
 $fn$;
 
 grant execute on function public.sync_my_order_statuses() to authenticated;
-
--- Frontend already contains the status label mapping:
--- success= Sukses, processing= Diproses, pending= Menunggu,
--- partial= Sebagian, failed= Gagal.

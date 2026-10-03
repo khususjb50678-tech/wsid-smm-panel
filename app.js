@@ -155,22 +155,33 @@ function infoText(x, fallback){
   return parts.length?parts.map(v=>`<p>${esc(v)}</p>`).join(''):`<p>${esc(fallback||'')}</p>`;
 }
 
-async function syncMyOrderStatuses(){
+let lastOrderSync=0, orderSyncBusy=false;
+async function syncMyOrderStatuses(force){
+  if(orderSyncBusy)return null;
+  if(!force && Date.now()-lastOrderSync<15000)return null;
+  orderSyncBusy=true;
   try{
     const r=await sb.rpc('sync_my_order_statuses');
-    if(r.error)console.warn('Order status sync:',r.error);
+    if(r.error){console.warn('Order status sync:',r.error);return null;}
+    lastOrderSync=Date.now();
+    if(r.data && r.data.last_error)console.warn('Order status sync detail:',r.data.last_error);
     return r.data||null;
   }catch(e){
     console.warn('Order status sync exception:',e);
     return null;
-  }
+  }finally{orderSyncBusy=false;}
+}
+function backgroundSyncAndRefresh(){
+  syncMyOrderStatuses().then(r=>{
+    if(r && Number(r.updated||0)>0 && S.page==='orders')render();
+  });
 }
 function startOrderStatusPolling(){
   if(orderStatusPoll)return;
   orderStatusPoll=setInterval(async()=>{
     if(S.page!=='orders'){clearInterval(orderStatusPoll);orderStatusPoll=null;return;}
-    const r=await syncMyOrderStatuses();
-    if(r && (Number(r.updated||0)>0 || Number(r.checked||0)>0)) await render();
+    const r=await syncMyOrderStatuses(true);
+    if(r && Number(r.updated||0)>0) await render();
   },20000);
 }
 function stopOrderStatusPolling(){
@@ -357,7 +368,7 @@ window.showHistoryDetail=async(id,kind)=>{
           ${detailRow('ID Order',orderCode(x.id))}
           ${detailRow('ID Provider',x.provider_order_id)}
           ${detailRow('Layanan',service)}
-          ${detailRow('Kategori',x.services?.category?.name||x.category||'')}
+          ${detailRow('Kategori',(typeof x.services?.category==='object'?x.services?.category?.name:x.services?.category)||x.category||'')}
           ${detailRow('Target',x.target)}
           ${detailRow('Jumlah',Number(x.quantity||0).toLocaleString('id-ID'))}
           ${detailRow('Total',money(x.sale_total))}
@@ -370,7 +381,7 @@ window.showHistoryDetail=async(id,kind)=>{
           ${detailRow('Diperbarui',x.updated_at?new Date(x.updated_at).toLocaleString('id-ID'):'')}
           ${detailRow('Pesan Error',x.error_message)}
         </div>
-        <div class="history-detail-actions"><button class="btn" onclick="closeHistoryDetail()">Tutup</button><button class="btn red" onclick="closeHistoryDetail();showHistoryDetail(${JSON.stringify(x.id)},'order')">↻ Refresh Status</button></div>`;
+        <div class="history-detail-actions"><button class="btn" onclick="closeHistoryDetail()">Tutup</button><button class="btn red" onclick="closeHistoryDetail();showHistoryDetail('${esc(x.id)}','order')">↻ Refresh Status</button></div>`;
     }else{
       const r=await sb.from('deposits').select('*').eq('id',id).eq('user_id',S.user.id).maybeSingle();
       if(r.error)throw r.error;
@@ -398,8 +409,6 @@ window.showHistoryDetail=async(id,kind)=>{
 
 async function orders(){
   try{
-    // Pull the latest status from the provider before rendering history.
-    await syncMyOrderStatuses();
     const [o,d]=await Promise.all([
       sb.from('orders').select('*,services(name,category)').eq('user_id',S.user.id).order('created_at',{ascending:false}),
       sb.from('deposits').select('*').eq('user_id',S.user.id).order('created_at',{ascending:false})
@@ -411,10 +420,12 @@ async function orders(){
       ...ordersRows.map(x=>({kind:'order',date:x.created_at,id:x.id,code:orderCode(x.id),name:x.services?.name||'Layanan',status:x.status,target:x.target,qty:x.quantity,total:x.sale_total})),
       ...depositsRows.map(x=>({kind:'deposit',date:x.created_at,id:x.id,code:depositCode(x.id),name:'Deposit Saldo',status:x.status,target:'Pengajuan deposit',qty:null,total:x.amount}))
     ].sort((a,b)=>new Date(b.date)-new Date(a.date));
+    // Cek status provider di latar belakang; tampilan riwayat tidak menunggu.
+    setTimeout(backgroundSyncAndRefresh,50);
     return `<div class="head order-head"><div><h1>Riwayat</h1><small>Semua riwayat order dan deposit kamu.</small></div><span class="count-pill">${items.length} Riwayat</span></div>
       <div class="order-list">${items.map(o=>{
         const st=String(o.status||'pending').toLowerCase();
-        return `<article class="order-card history-card" onclick="showHistoryDetail(${JSON.stringify(o.id)},${JSON.stringify(o.kind)})" role="button" tabindex="0">
+        return `<article class="order-card history-card" onclick="showHistoryDetail('${esc(o.id)}','${esc(o.kind)}')" role="button" tabindex="0">
           <div class="order-icon">${o.kind==='deposit'?'Rp':esc((o.name||'L')[0])}</div>
           <div class="order-main">
             <div class="order-top"><b>${esc(o.name)}</b><span class="status-badge status-${esc(st)}">${esc(statusLabel(st))}</span></div>
@@ -453,7 +464,7 @@ window.showPayment=(type,el)=>{
   }else{
     const isGo=t==='gopay', name=isGo?setting('gopay_name',setting('owner_name','Witama Store.ID')):setting('dana_name',setting('owner_name','Witama Store.ID'));
     const num=isGo?setting('gopay_number','Nomor belum diatur'):setting('dana_number','Nomor belum diatur');
-    box.innerHTML=`<div class="payment-detail-head"><b>${isGo?'GoPay':'DANA'}</b><small>${esc(name)}</small></div><div class="payment-number"><strong>${esc(num)}</strong><button class="btn" onclick="navigator.clipboard?.writeText(${JSON.stringify(num)});alert('Nomor disalin')">Salin</button></div><small class="payment-note">Transfer sesuai total pembayaran yang ditampilkan di bawah.</small>`;
+    box.innerHTML=`<div class="payment-detail-head"><b>${isGo?'GoPay':'DANA'}</b><small>${esc(name)}</small></div><div class="payment-number"><strong>${esc(num)}</strong><button class="btn" onclick="navigator.clipboard?.writeText('${esc(num)}');alert('Nomor disalin')">Salin</button></div><small class="payment-note">Transfer sesuai total pembayaran yang ditampilkan di bawah.</small>`;
   }
 };
 function depositFeePercent(){const n=Number(setting('deposit_fee_percent','0.7'));return Number.isFinite(n)&&n>=0?n:0.7;}
