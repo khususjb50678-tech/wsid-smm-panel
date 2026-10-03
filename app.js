@@ -316,6 +316,86 @@ window.makeOrder=async id=>{
   }
 };
 
+async function refreshOneOrderStatus(id){
+  try{
+    const r=await sb.rpc('wsid_provider_order_status',{p_order_id:id});
+    if(r.error)throw r.error;
+    return r.data||null;
+  }catch(e){
+    console.warn('Single order status sync:',e);
+    return {status:false,msg:e?.message||'Gagal membaca status provider.'};
+  }
+}
+function detailRow(label,value){
+  if(value===undefined||value===null||value==='')return '';
+  return `<div class="history-detail-row"><span>${esc(label)}</span><b>${esc(value)}</b></div>`;
+}
+window.closeHistoryDetail=()=>{
+  document.getElementById('history-detail-modal')?.remove();
+};
+window.showHistoryDetail=async(id,kind)=>{
+  if(document.getElementById('history-detail-modal'))return;
+  const modal=document.createElement('div');
+  modal.id='history-detail-modal';
+  modal.className='history-modal';
+  modal.innerHTML=`<div class="history-modal-backdrop" onclick="closeHistoryDetail()"></div><section class="history-modal-card"><div class="history-modal-head"><div><b>Detail Riwayat</b><small>Memuat detail...</small></div><button onclick="closeHistoryDetail()">×</button></div><div class="history-detail-loading">Memuat...</div></section>`;
+  document.body.appendChild(modal);
+  try{
+    if(kind==='order'){
+      const sync=await refreshOneOrderStatus(id);
+      const r=await sb.from('orders').select('*,services(name,category)').eq('id',id).eq('user_id',S.user.id).maybeSingle();
+      if(r.error)throw r.error;
+      if(!r.data)throw new Error('Order tidak ditemukan.');
+      const x=r.data, st=String(x.status||'pending').toLowerCase();
+      const service=x.services?.name||'Layanan';
+      const providerStatus=x.provider_status||sync?.provider_status||'-';
+      const detail=modal.querySelector('.history-modal-card');
+      detail.innerHTML=`<div class="history-modal-head"><div><b>${esc(service)}</b><small>${esc(orderCode(x.id))}</small></div><button onclick="closeHistoryDetail()">×</button></div>
+        <div class="history-detail-status"><span class="status-badge status-${esc(st)}">${esc(statusLabel(st))}</span><small>Provider: ${esc(providerStatus)}</small></div>
+        ${sync&&!sync.status?`<div class="history-sync-error">${esc(sync.msg||'Status provider belum bisa dibaca.')}</div>`:''}
+        <div class="history-detail-list">
+          ${detailRow('ID Order',orderCode(x.id))}
+          ${detailRow('ID Provider',x.provider_order_id)}
+          ${detailRow('Layanan',service)}
+          ${detailRow('Kategori',x.services?.category?.name||x.category||'')}
+          ${detailRow('Target',x.target)}
+          ${detailRow('Jumlah',Number(x.quantity||0).toLocaleString('id-ID'))}
+          ${detailRow('Total',money(x.sale_total))}
+          ${detailRow('Status',statusLabel(st))}
+          ${detailRow('Status Provider',providerStatus)}
+          ${detailRow('Start Count',x.start_count)}
+          ${detailRow('Remains',x.remains)}
+          ${detailRow('Charge Provider',x.charge)}
+          ${detailRow('Dibuat',x.created_at?new Date(x.created_at).toLocaleString('id-ID'):'')}
+          ${detailRow('Diperbarui',x.updated_at?new Date(x.updated_at).toLocaleString('id-ID'):'')}
+          ${detailRow('Pesan Error',x.error_message)}
+        </div>
+        <div class="history-detail-actions"><button class="btn" onclick="closeHistoryDetail()">Tutup</button><button class="btn red" onclick="closeHistoryDetail();showHistoryDetail(${JSON.stringify(x.id)},'order')">↻ Refresh Status</button></div>`;
+    }else{
+      const r=await sb.from('deposits').select('*').eq('id',id).eq('user_id',S.user.id).maybeSingle();
+      if(r.error)throw r.error;
+      if(!r.data)throw new Error('Deposit tidak ditemukan.');
+      const x=r.data, st=String(x.status||'pending').toLowerCase();
+      const detail=modal.querySelector('.history-modal-card');
+      detail.innerHTML=`<div class="history-modal-head"><div><b>Deposit Saldo</b><small>${esc(depositCode(x.id))}</small></div><button onclick="closeHistoryDetail()">×</button></div>
+        <div class="history-detail-status"><span class="status-badge status-${esc(st)}">${esc(statusLabel(st))}</span></div>
+        <div class="history-detail-list">
+          ${detailRow('ID Deposit',depositCode(x.id))}
+          ${detailRow('Nominal',money(x.amount))}
+          ${detailRow('Status',statusLabel(st))}
+          ${detailRow('Metode',x.method)}
+          ${detailRow('Biaya Admin',x.fee)}
+          ${detailRow('Total Pembayaran',x.payment_total)}
+          ${detailRow('Dibuat',x.created_at?new Date(x.created_at).toLocaleString('id-ID'):'')}
+          ${detailRow('Diperbarui',x.updated_at?new Date(x.updated_at).toLocaleString('id-ID'):'')}
+          ${detailRow('Catatan',x.admin_note||x.note||x.message)}
+        </div><div class="history-detail-actions"><button class="btn wide" onclick="closeHistoryDetail()">Tutup</button></div>`;
+    }
+  }catch(e){
+    modal.querySelector('.history-detail-loading').innerHTML=`<div class="history-sync-error">${esc(e?.message||'Detail tidak dapat dimuat.')}</div>`;
+  }
+};
+
 async function orders(){
   try{
     // Pull the latest status from the provider before rendering history.
@@ -331,22 +411,23 @@ async function orders(){
       ...ordersRows.map(x=>({kind:'order',date:x.created_at,id:x.id,code:orderCode(x.id),name:x.services?.name||'Layanan',status:x.status,target:x.target,qty:x.quantity,total:x.sale_total})),
       ...depositsRows.map(x=>({kind:'deposit',date:x.created_at,id:x.id,code:depositCode(x.id),name:'Deposit Saldo',status:x.status,target:'Pengajuan deposit',qty:null,total:x.amount}))
     ].sort((a,b)=>new Date(b.date)-new Date(a.date));
-    return `<div class=\"head order-head\"><div><h1>Riwayat</h1><small>Semua riwayat order dan deposit kamu.</small></div><span class=\"count-pill\">${items.length} Riwayat</span></div>
-      <div class=\"order-list\">${items.map(o=>{
+    return `<div class="head order-head"><div><h1>Riwayat</h1><small>Semua riwayat order dan deposit kamu.</small></div><span class="count-pill">${items.length} Riwayat</span></div>
+      <div class="order-list">${items.map(o=>{
         const st=String(o.status||'pending').toLowerCase();
-        return `<article class=\"order-card history-card\">
-          <div class=\"order-icon\">${o.kind==='deposit'?'Rp':esc((o.name||'L')[0])}</div>
-          <div class=\"order-main\">
-            <div class=\"order-top\"><b>${esc(o.name)}</b><span class=\"status-badge status-${esc(st)}\">${esc(statusLabel(st))}</span></div>
-            <small class=\"history-id\">ID: <b>${esc(o.code)}</b></small>
-            <small class=\"order-target\">${esc(o.target||'')}</small>
-            <div class=\"order-meta\">${o.kind==='order'?`<span>Jumlah <b>${Number(o.qty||0).toLocaleString('id-ID')}</b></span>`:''}<span>Total <b>${money(o.total)}</b></span><span>${new Date(o.date).toLocaleString('id-ID')}</span></div>
+        return `<article class="order-card history-card" onclick="showHistoryDetail(${JSON.stringify(o.id)},${JSON.stringify(o.kind)})" role="button" tabindex="0">
+          <div class="order-icon">${o.kind==='deposit'?'Rp':esc((o.name||'L')[0])}</div>
+          <div class="order-main">
+            <div class="order-top"><b>${esc(o.name)}</b><span class="status-badge status-${esc(st)}">${esc(statusLabel(st))}</span></div>
+            <small class="history-id">ID: <b>${esc(o.code)}</b></small>
+            <small class="order-target">${esc(o.target||'')}</small>
+            <div class="order-meta">${o.kind==='order'?`<span>Jumlah <b>${Number(o.qty||0).toLocaleString('id-ID')}</b></span>`:''}<span>Total <b>${money(o.total)}</b></span><span>${new Date(o.date).toLocaleString('id-ID')}</span></div>
+            <small class="history-open-hint">Tap untuk melihat detail lengkap ›</small>
           </div>
         </article>`;
-      }).join('')||'<div class=\"empty\">Belum ada riwayat.</div>'}</div>`;
+      }).join('')||'<div class="empty">Belum ada riwayat.</div>'}</div>`;
   }catch(e){
     console.error('History error:',e);
-    return `<div class=\"head\"><h1>Riwayat</h1><small>Semua riwayat order dan deposit kamu.</small></div><div class=\"card\"><p>Riwayat belum bisa dimuat.</p><small>${esc(e?.message||'Terjadi kesalahan.')}</small></div>`;
+    return `<div class="head"><h1>Riwayat</h1><small>Semua riwayat order dan deposit kamu.</small></div><div class="card"><p>Riwayat belum bisa dimuat.</p><small>${esc(e?.message||'Terjadi kesalahan.')}</small></div>`;
   }
 }
 
