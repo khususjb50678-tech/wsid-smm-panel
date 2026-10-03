@@ -130,13 +130,37 @@ async function load(){
   }
 }
 
+function newsUpdatedAt(){
+  return setting('latest_news_updated_at','');
+}
+function newsEnabled(){
+  const v=String(setting('latest_news_enabled','true')).toLowerCase();
+  return v!=='false' && v!=='0' && v!=='off';
+}
+function newsUnread(){
+  if(!newsEnabled())return false;
+  const updated=Date.parse(newsUpdatedAt());
+  const seen=Number(localStorage.getItem('wsid_news_seen_at')||0);
+  if(!Number.isFinite(updated))return !seen;
+  return updated>seen;
+}
+function markNewsRead(){
+  const updated=Date.parse(newsUpdatedAt());
+  localStorage.setItem('wsid_news_seen_at',String(Number.isFinite(updated)?updated:Date.now()));
+}
+function infoText(x, fallback){
+  const t=cleanText(x||fallback||'').replace(/\r/g,'');
+  const parts=t.split(/\n+/).map(v=>v.trim()).filter(Boolean);
+  return parts.length?parts.map(v=>`<p>${esc(v)}</p>`).join(''):`<p>${esc(fallback||'')}</p>`;
+}
+
 function nav(p){S.page=p;render();}
 
 function shell(c){
   return `<div class="shell">
     <header>
       <div class="brand"><i>W</i><b>${esc(setting('panel_name','WSID SMM PANEL'))}<small>${esc(setting('owner_name','Witama Store.ID'))}</small></b></div>
-      <span class="user">${esc(S.profile?.full_name||'Member')} <button onclick="logout()">⋮</button></span>
+      <div class="header-user-actions"><button class="header-news-btn" onclick="nav('news')" aria-label="Notifikasi terbaru" title="Notifikasi terbaru">🔔${newsUnread()?'<span class="header-news-badge">!</span>':''}</button><span class="user">${esc(S.profile?.full_name||'Member')} <button onclick="logout()">⋮</button></span></div>
     </header>
     <main>${c}</main>
     <nav>${[
@@ -161,6 +185,7 @@ function home(){
     <div><small>Total Profit</small><b>Rp 0</b></div>
   </div>
   <div class="banner"><b>${esc(setting('panel_name','WSID SMM PANEL'))}</b><span>Solusi terbaik untuk kebutuhan sosial media Anda</span><small>Cepat • Aman • Terpercaya</small></div>
+  ${newsEnabled()?`<section class="latest-news-card ${newsUnread()?'is-new':''}"><div class="latest-news-head"><span>🔔 Berita Terbaru</span>${newsUnread()?'<em>NEW</em>':''}</div><h3>${esc(setting('latest_news_title','Informasi Terbaru'))}</h3><p>${esc(cleanText(setting('latest_news_body','Belum ada berita terbaru.')).split(/\n+/)[0]||'Belum ada berita terbaru.')}</p><small>${newsUpdatedAt()?new Date(newsUpdatedAt()).toLocaleString('id-ID'):'Informasi terbaru dari admin'}</small><button class="btn mini red" onclick="nav('news')">Lihat Berita</button></section>`:''}
   <h2>Layanan Populer</h2>
   <div class="grid2">${['TikTok','Instagram','YouTube','Facebook'].map(x=>`<button onclick="nav('order')"><b>${x}</b><small>Layanan ${x}</small></button>`).join('')}</div>
   <div class="balance"><span>Saldo Anda<br><b>${money(S.wallet?.balance)}</b></span><button class="btn red" onclick="nav('deposit')">Deposit</button></div>
@@ -168,9 +193,32 @@ function home(){
     ['order','🛒','Order','Pesan layanan sosial media'],
     ['orders','▣','Riwayat','Lihat semua riwayat'],
     ['deposit','▤','Deposit','Tambah saldo'],
+    ['news','🔔','Notifikasi Terbaru',newsUnread()?'Ada berita baru dari admin':'Lihat informasi terbaru'],
+    ['terms','📄','Syarat & Ketentuan','Baca ketentuan penggunaan panel'],
+    ['status','📋','Penjelasan Status','Arti status order dan deposit'],
     ['profile','♙','Profil','Kelola akun'],
   ].map(x=>`<button onclick="nav('${x[0]}')"><strong>${x[1]}</strong><span><b>${x[2]}</b><small>${x[3]}</small></span>›</button>`).join('')}</div>
 `;
+}
+
+async function news(){
+  markNewsRead();
+  const title=setting('latest_news_title','Informasi Terbaru');
+  const body=setting('latest_news_body','Belum ada berita terbaru dari admin.');
+  const when=newsUpdatedAt();
+  return `<div class="head"><h1>🔔 Notifikasi Terbaru</h1><small>Informasi dan pengumuman terbaru dari admin.</small></div>
+  <section class="info-card latest-news-page"><div class="info-card-top"><span>BERITA TERBARU</span>${when?`<small>${new Date(when).toLocaleString('id-ID')}</small>`:''}</div><h2>${esc(title)}</h2><div class="info-content">${infoText(body,'Belum ada berita terbaru dari admin.')}</div></section>
+  <button class="btn wide" onclick="nav('home')">← Kembali ke Beranda</button>`;
+}
+function terms(){
+  const title=setting('terms_title','Syarat & Ketentuan');
+  const body=setting('terms_content','Gunakan layanan dengan data target yang benar. Pastikan nominal pembayaran dan detail pesanan sudah sesuai sebelum dikirim. Ketentuan dapat diperbarui oleh admin sewaktu-waktu.');
+  return `<div class="head"><h1>📄 ${esc(title)}</h1><small>Ketentuan penggunaan layanan WSID SMM PANEL.</small></div><section class="info-card"><div class="info-content">${infoText(body)}</div></section><button class="btn wide" onclick="nav('home')">← Kembali ke Beranda</button>`;
+}
+function statusInfo(){
+  const title=setting('status_title','Penjelasan Status');
+  const body=setting('status_content','Pending — pesanan sedang menunggu proses.\nProcessing — pesanan sedang diproses oleh provider.\nSuccess / Completed — pesanan berhasil diselesaikan.\nFailed / Error — proses pesanan mengalami kegagalan.\nCancelled / Canceled — pesanan dibatalkan.\nRejected — pengajuan ditolak oleh admin.');
+  return `<div class="head"><h1>📋 ${esc(title)}</h1><small>Arti status pada riwayat order dan deposit.</small></div><section class="info-card"><div class="info-content">${infoText(body)}</div></section><button class="btn wide" onclick="nav('home')">← Kembali ke Beranda</button>`;
 }
 
 function order(){
@@ -204,7 +252,7 @@ window.detail=id=>{
     <h3>Peraturan Order</h3>
     <div class=\"rules-box\">${formatRules(s.description||'')}</div>
     <div class=\"order-form-box\">
-      <label>Target<input id=\"target\" placeholder=\"Masukkan link / username target\"></label>
+      <label>Link Target<input id=\"target\" type=\"url\" placeholder=\"Masukkan link target (https://...)\" required></label>
       <label>Jumlah<input id=\"qty\" type=\"number\" min=\"${s.min_qty}\" max=\"${s.max_qty}\" value=\"${s.min_qty}\"></label>
       <small class=\"muted\">Min ${Number(s.min_qty||0).toLocaleString('id-ID')} • Max ${Number(s.max_qty||0).toLocaleString('id-ID')}</small>
       <button class=\"btn red wide\" onclick=\"makeOrder('${esc(s.id)}')\">Buy Sekarang</button>
@@ -387,7 +435,7 @@ async function profile(){
       </div>
     </div>
   </section>
-  <div class="menus"><button onclick="logout()"><strong>↪</strong><span><b>Keluar</b><small>Keluar akun.</small></span>›</button></div>`;
+  <div class="menus"><button onclick="nav('news')"><strong>🔔</strong><span><b>Notifikasi Terbaru</b><small>${newsUnread()?'Ada berita baru dari admin':'Lihat berita terbaru'}</small></span>›</button><button onclick="nav('terms')"><strong>📄</strong><span><b>Syarat & Ketentuan</b><small>Baca ketentuan layanan.</small></span>›</button><button onclick="nav('status')"><strong>📋</strong><span><b>Penjelasan Status</b><small>Arti status pesanan dan deposit.</small></span>›</button><button onclick="logout()"><strong>↪</strong><span><b>Keluar</b><small>Keluar akun.</small></span>›</button></div>`;
 }
 async function render(){
   try{
@@ -395,6 +443,9 @@ async function render(){
       S.page==='order'?order():
       S.page==='deposit'?deposit():
       S.page==='profile'?await profile():
+      S.page==='news'?await news():
+      S.page==='terms'?terms():
+      S.page==='status'?statusInfo():
       await orders();
     appEl().innerHTML=shell(c);
   }catch(e){

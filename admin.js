@@ -158,6 +158,23 @@ async function settings(){
   <label>Link WhatsApp<input id="sw" value="${esc(v.support_whatsapp||'')}" placeholder="https://wa.me/62xxxxxxxxxx"></label>
   <label>Link Telegram<input id="st" value="${esc(v.support_telegram||'')}" placeholder="https://t.me/username"></label>
   <label>Link Instagram<input id="si" value="${esc(v.support_instagram||'')}" placeholder="https://instagram.com/username"></label>
+  <h3 class="settings-subtitle">Notifikasi Terbaru / Berita</h3>
+  <label class="check"><input id="news_enabled" type="checkbox" ${String(v.latest_news_enabled??'true').toLowerCase()!=='false'&&String(v.latest_news_enabled??'true')!=='0'?'checked':''}> Tampilkan notifikasi berita terbaru ke user</label>
+  <input id="news_old_title" type="hidden" value="${esc(v.latest_news_title||'Informasi Terbaru')}">
+  <input id="news_old_body" type="hidden" value="${esc(v.latest_news_body||'Belum ada berita terbaru dari admin.').replace(/\n/g,'&#10;')}">
+  <input id="news_old_enabled" type="hidden" value="${String(v.latest_news_enabled??'true')}">
+  <input id="news_old_updated_at" type="hidden" value="${esc(v.latest_news_updated_at||'')}">
+  <label>Judul Berita<input id="news_title" value="${esc(v.latest_news_title||'Informasi Terbaru')}" placeholder="Contoh: Deposit QRIS Sudah Normal"></label>
+  <label>Isi Berita / Pengumuman<textarea id="news_body" rows="5" placeholder="Tulis berita terbaru untuk semua user...">${esc(v.latest_news_body||'Belum ada berita terbaru dari admin.')}</textarea></label>
+  <small class="muted">Saat judul atau isi berita berubah, sistem otomatis memberi tanda <b>NEW</b> kepada user sampai berita dibuka.</small>
+  <h3 class="settings-subtitle">Syarat & Ketentuan</h3>
+  <label>Judul Halaman<input id="terms_title" value="${esc(v.terms_title||'Syarat & Ketentuan')}"></label>
+  <label>Isi Syarat & Ketentuan<textarea id="terms_content" rows="8" placeholder="Tulis syarat dan ketentuan layanan...">${esc(v.terms_content||'Gunakan layanan dengan data target yang benar.\nPastikan nominal pembayaran dan detail pesanan sudah sesuai sebelum dikirim.\nKetentuan dapat diperbarui oleh admin sewaktu-waktu.')}<\/textarea></label>
+  <h3 class="settings-subtitle">Penjelasan Status</h3>
+  <label>Judul Halaman<input id="status_title" value="${esc(v.status_title||'Penjelasan Status')}"></label>
+  <label>Penjelasan Status<textarea id="status_content" rows="8" placeholder="Pending — ...
+Processing — ...
+Success — ...">${esc(v.status_content||'Pending — pesanan sedang menunggu proses.\nProcessing — pesanan sedang diproses oleh provider.\nSuccess / Completed — pesanan berhasil diselesaikan.\nFailed / Error — proses pesanan mengalami kegagalan.\nCancelled / Canceled — pesanan dibatalkan.\nRejected — pengajuan ditolak oleh admin.')}<\/textarea></label>
   <h3 class="settings-subtitle">Notifikasi Telegram</h3>
   <label>Token Bot Telegram<input id="tb" type="text" value="${esc(v.telegram_bot_token||'')}" placeholder="Masukkan token bot Telegram"></label>
   <label>ID Telegram Admin / Test<input id="tc" value="${esc(v.telegram_chat_id||'')}" placeholder="Contoh: 123456789"></label>
@@ -174,7 +191,9 @@ window.showPaymentLogoName=(input,id)=>{const f=input?.files?.[0],el=document.ge
 window.saveSettings=async()=>{
   try{
     const val=id=>document.getElementById(id)?.value ?? '';
-    const map={panel_name:val('sn'),owner_name:val('so'),dana_number:val('sd'),dana_name:val('sda'),gopay_number:val('sg'),gopay_name:val('sga'),deposit_fee_percent:val('sdp'),support_whatsapp:val('sw'),support_telegram:val('st'),support_instagram:val('si'),developer_name:val('sdn'),developer_bio:val('sdb'),telegram_chat_id:val('tc').trim(),telegram_notify_chat_id:val('tnc').trim(),telegram_bot_username:val('tbu').trim(),monitoring_website_url:val('mwu').trim()};
+    const newsTitle=val('news_title').trim(); const newsBody=val('news_body').trim(); const oldNewsTitle=val('news_old_title').trim(); const oldNewsBody=val('news_old_body').trim(); const newsEnabledNow=document.getElementById('news_enabled')?.checked!==false;
+    const map={panel_name:val('sn'),owner_name:val('so'),dana_number:val('sd'),dana_name:val('sda'),gopay_number:val('sg'),gopay_name:val('sga'),deposit_fee_percent:val('sdp'),support_whatsapp:val('sw'),support_telegram:val('st'),support_instagram:val('si'),developer_name:val('sdn'),developer_bio:val('sdb'),latest_news_enabled:newsEnabledNow?'true':'false',latest_news_title:newsTitle,latest_news_body:newsBody,terms_title:val('terms_title').trim(),terms_content:val('terms_content').trim(),status_title:val('status_title').trim(),status_content:val('status_content').trim(),telegram_chat_id:val('tc').trim(),telegram_notify_chat_id:val('tnc').trim(),telegram_bot_username:val('tbu').trim(),monitoring_website_url:val('mwu').trim()};
+    if(!val('news_old_updated_at') || newsTitle!==oldNewsTitle || newsBody!==oldNewsBody || newsEnabledNow!== (String(val('news_old_enabled')).toLowerCase()!=='false' && String(val('news_old_enabled'))!=='0')) map.latest_news_updated_at=new Date().toISOString();
     const telegramToken=document.getElementById('tb')?.value.trim(); const telegramChat=document.getElementById('tc')?.value.trim();
     if(telegramToken||telegramChat){const meTelegram=(await sb.auth.getUser()).data.user?.id||null;const tg=await sb.from('telegram_config').upsert({id:1,bot_token:telegramToken||null,chat_id:telegramChat||null,updated_by:meTelegram,updated_at:new Date().toISOString()},{onConflict:'id'});if(tg.error)throw tg.error;}
     const qf=document.getElementById('qrisFile')?.files?.[0];
