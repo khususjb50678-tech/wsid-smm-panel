@@ -1,8 +1,13 @@
--- WSID SMM PANEL V32 - PROVIDER STATUS SYNC
--- ONLY changes order-status synchronization. Existing order creation, Telegram,
--- deposit, target privacy, news, terms, status-info and Safe Browser features stay intact.
--- Provider order ID defaults to public.orders.id because the provider and panel
--- screenshots show the same order ID. If a provider_order_id column exists, it is used.
+-- WSID SMM PANEL V34 - PROVIDER STATUS SYNC ONLY
+-- IMPORTANT: This patch changes ONLY provider order-status reading.
+-- Order creation/submission, deposits, Telegram, target privacy, news/terms,
+-- Safe Browser and all other existing features are untouched.
+--
+-- The existing submit_order() implementation for FAYUPEDIA uses:
+--   api_id=<provider api_id>
+--   api_key=<provider api_key>
+--   endpoint: <base_url>/order
+-- Therefore status checks use the SAME provider credentials and endpoint.
 
 create or replace function public.wsid_provider_order_status(p_order_id text)
 returns jsonb
@@ -52,18 +57,22 @@ begin
     return jsonb_build_object('status',false,'msg','Koneksi provider FAYUPEDIA tidak aktif.');
   end if;
 
-  -- Prefer provider_order_id when present; otherwise use the panel order ID.
-  v_provider_order := coalesce(to_jsonb(v_order)->>'provider_order_id', v_order.id::text);
+  -- IMPORTANT: provider_order_id is the ID returned by FAYUPEDIA (example: 5519511).
+  -- Never use the UUID of public.orders when a provider order ID exists.
+  v_provider_order := coalesce(to_jsonb(v_order)->>'provider_order_id', '');
   if coalesce(trim(v_provider_order),'')='' then
-    v_provider_order := v_order.id::text;
+    return jsonb_build_object('status',false,'msg','Provider order ID belum tersedia.');
   end if;
 
   if coalesce(trim(v_provider.base_url),'')='' or coalesce(trim(v_provider.api_key),'')='' then
     return jsonb_build_object('status',false,'msg','Base URL/API key provider belum lengkap.');
   end if;
 
-  -- FAYUPEDIA-style SMM API: key + action=status + order=<provider order id>.
-  v_body := 'key='||extensions.urlencode(trim(v_provider.api_key))
+  -- MATCH THE EXISTING WORKING submit_order() FORMAT:
+  -- api_id + api_key -> <base_url>/order
+  -- Status request adds action=status and the FAYUPEDIA provider order ID.
+  v_body := 'api_id='||extensions.urlencode(trim(v_provider.api_id::varchar))
+         ||'&api_key='||extensions.urlencode(trim(v_provider.api_key))
          ||'&action=status'
          ||'&order='||extensions.urlencode(v_provider_order);
 
@@ -71,7 +80,7 @@ begin
     select r.status, r.content
       into v_http_status, v_content
     from extensions.http_post(
-      regexp_replace(trim(v_provider.base_url), '/+$', ''),
+      regexp_replace(trim(v_provider.base_url), '/+$', '')||'/order',
       v_body,
       'application/x-www-form-urlencoded'
     ) r;
@@ -80,19 +89,29 @@ begin
   end;
 
   if coalesce(v_http_status,0) < 200 or coalesce(v_http_status,0) >= 300 then
-    return jsonb_build_object('status',false,'msg','Provider HTTP '||coalesce(v_http_status,0)::text,'http_status',v_http_status);
+    return jsonb_build_object(
+      'status',false,
+      'msg','Provider HTTP '||coalesce(v_http_status,0)::text,
+      'http_status',v_http_status
+    );
   end if;
 
   begin
     v_json := coalesce(v_content,'{}')::jsonb;
   exception when others then
-    return jsonb_build_object('status',false,'msg','Respons provider bukan JSON yang valid.','raw',left(coalesce(v_content,''),500));
+    return jsonb_build_object(
+      'status',false,
+      'msg','Respons provider bukan JSON yang valid.',
+      'raw',left(coalesce(v_content,''),500)
+    );
   end;
 
+  -- Accept common response shapes without changing order-creation logic.
   v_remote := lower(trim(coalesce(
     v_json->>'status',
     v_json->'data'->>'status',
     v_json->'order'->>'status',
+    v_json->'data'->'order'->>'status',
     ''
   )));
 
@@ -107,16 +126,34 @@ begin
   elsif v_remote in ('cancel','canceled','cancelled','failed','failure','error','rejected','reject','refunded','refund') then
     v_local := 'failed';
   else
-    -- Never mark an order as failed just because the provider introduced an
-    -- unknown status. Keep the current status until it is understood.
-    return jsonb_build_object('status',true,'updated',false,'order_id',v_order.id::text,'provider_status',v_remote,'local_status',v_order.status);
+    -- Unknown provider status: do not incorrectly mark the order failed.
+    return jsonb_build_object(
+      'status',true,
+      'updated',false,
+      'order_id',v_order.id::text,
+      'provider_order_id',v_provider_order,
+      'provider_status',v_remote,
+      'local_status',v_order.status
+    );
   end if;
 
-  if lower(coalesce(v_order.status::text,'')) is distinct from v_local then
-    update public.orders
-    set status=v_local
-    where id::text=p_order_id;
-    v_changed := true;
+  -- Keep provider_status in sync too, while preserving the existing local status.
+  if to_jsonb(v_order) ? 'provider_status' then
+    if lower(coalesce(v_order.status::text,'')) is distinct from v_local
+       or lower(coalesce(to_jsonb(v_order)->>'provider_status','')) is distinct from v_remote then
+      update public.orders
+      set status=v_local,
+          provider_status=v_remote
+      where id::text=p_order_id;
+      v_changed := true;
+    end if;
+  else
+    if lower(coalesce(v_order.status::text,'')) is distinct from v_local then
+      update public.orders
+      set status=v_local
+      where id::text=p_order_id;
+      v_changed := true;
+    end if;
   end if;
 
   return jsonb_build_object(
@@ -148,7 +185,6 @@ declare
   v_checked integer := 0;
   v_updated integer := 0;
   v_failed integer := 0;
-  v_status text;
 begin
   if auth.uid() is null then
     return jsonb_build_object('status',false,'msg','Belum login.');
@@ -179,6 +215,6 @@ $fn$;
 
 grant execute on function public.sync_my_order_statuses() to authenticated;
 
--- Add Partial styling/status semantics without changing existing status values.
--- The frontend maps provider Completed/Success -> success, Processing -> processing,
--- Partial -> partial, and Failed/Canceled/Error -> failed.
+-- Frontend already contains the status label mapping:
+-- success= Sukses, processing= Diproses, pending= Menunggu,
+-- partial= Sebagian, failed= Gagal.
