@@ -125,9 +125,55 @@ window.runReset=async(target,message)=>{
   alert(r.data?.message||'Reset berhasil.'); draw();
 };
 
+let NEWS_ITEMS=[];
+function parseNews(v){
+  let arr=[]; const raw=v.news_items||'';
+  try{ if(raw)arr=JSON.parse(raw); }catch(e){ arr=[]; }
+  if(!Array.isArray(arr))arr=[];
+  if(!arr.length && !raw){
+    const b=String(v.latest_news_body||'').trim();
+    if(b)arr=[{id:'legacy',title:v.latest_news_title||'Informasi Terbaru',body:b,created_at:v.latest_news_updated_at||new Date().toISOString()}];
+  }
+  return arr.filter(x=>x&&(x.title||x.body)).sort((a,b)=>(Date.parse(b.created_at)||0)-(Date.parse(a.created_at)||0));
+}
+function newsAdminListHtml(){
+  if(!NEWS_ITEMS.length)return '<p class="muted">Belum ada berita.</p>';
+  return NEWS_ITEMS.map(n=>`<div class="news-admin-item"><div><b>${esc(n.title)}</b><small>${n.created_at?new Date(n.created_at).toLocaleString('id-ID'):''}</small><p>${esc(String(n.body||'').slice(0,140))}</p></div><button class="btn mini" onclick="deleteNews('${esc(n.id)}')">🗑 Hapus</button></div>`).join('');
+}
+async function saveNewsItems(){
+  const me=(await sb.auth.getUser()).data.user?.id||null;
+  const now=new Date().toISOString();
+  const rows=[{key:'news_items',value:JSON.stringify(NEWS_ITEMS)},{key:'latest_news_updated_at',value:NEWS_ITEMS[0]?.created_at||''}].map(r=>({...r,updated_by:me,updated_at:now}));
+  const r=await sb.from('panel_settings').upsert(rows,{onConflict:'key'});
+  if(r.error)throw r.error;
+}
+function renderNewsAdmin(msg){
+  const el=document.getElementById('news-admin-list'); if(el)el.innerHTML=newsAdminListHtml();
+  const m=document.getElementById('news-msg'); if(m)m.textContent=msg||'';
+}
+window.addNews=async()=>{
+  const t=document.getElementById('news_title')?.value.trim()||'';
+  const b=document.getElementById('news_body')?.value.trim()||'';
+  if(!t||!b)return renderNewsAdmin('Judul dan isi berita wajib diisi.');
+  const before=NEWS_ITEMS;
+  NEWS_ITEMS=[{id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),title:t,body:b,created_at:new Date().toISOString()},...NEWS_ITEMS];
+  try{
+    await saveNewsItems();
+    document.getElementById('news_title').value=''; document.getElementById('news_body').value='';
+    renderNewsAdmin('Berita ditambahkan ✅');
+  }catch(e){ NEWS_ITEMS=before; renderNewsAdmin('Gagal menambah berita: '+(e.message||e)); }
+};
+window.deleteNews=async id=>{
+  if(!confirm('Hapus berita ini?'))return;
+  const before=NEWS_ITEMS;
+  NEWS_ITEMS=NEWS_ITEMS.filter(n=>n.id!==id);
+  try{ await saveNewsItems(); renderNewsAdmin('Berita dihapus ✅'); }
+  catch(e){ NEWS_ITEMS=before; renderNewsAdmin('Gagal menghapus berita: '+(e.message||e)); }
+};
 async function settings(){
   const [r,tg]=await Promise.all([sb.from('panel_settings').select('*'),sb.from('telegram_config').select('bot_token,chat_id').eq('id',1).maybeSingle()]);
   const v={};(r.data||[]).forEach(x=>v[x.key]=x.value);if(tg.data){v.telegram_bot_token=tg.data.bot_token||'';if(tg.data.chat_id)v.telegram_chat_id=tg.data.chat_id;}
+  NEWS_ITEMS=parseNews(v);
   return `<h1>Settings</h1>
   <section class="card settings-card"><h3>Branding & Kontak</h3>
   <label>Nama Panel<input id="sn" value="${esc(v.panel_name||'WSID SMM PANEL')}"></label>
@@ -160,13 +206,12 @@ async function settings(){
   <label>Link Instagram<input id="si" value="${esc(v.support_instagram||'')}" placeholder="https://instagram.com/username"></label>
   <h3 class="settings-subtitle">Notifikasi Terbaru / Berita</h3>
   <label class="check"><input id="news_enabled" type="checkbox" ${String(v.latest_news_enabled??'true').toLowerCase()!=='false'&&String(v.latest_news_enabled??'true')!=='0'?'checked':''}> Tampilkan notifikasi berita terbaru ke user</label>
-  <input id="news_old_title" type="hidden" value="${esc(v.latest_news_title||'Informasi Terbaru')}">
-  <input id="news_old_body" type="hidden" value="${esc(v.latest_news_body||'Belum ada berita terbaru dari admin.').replace(/\n/g,'&#10;')}">
-  <input id="news_old_enabled" type="hidden" value="${String(v.latest_news_enabled??'true')}">
-  <input id="news_old_updated_at" type="hidden" value="${esc(v.latest_news_updated_at||'')}">
-  <label>Judul Berita<input id="news_title" value="${esc(v.latest_news_title||'Informasi Terbaru')}" placeholder="Contoh: Deposit QRIS Sudah Normal"></label>
-  <label>Isi Berita / Pengumuman<textarea id="news_body" rows="5" placeholder="Tulis berita terbaru untuk semua user...">${esc(v.latest_news_body||'Belum ada berita terbaru dari admin.')}</textarea></label>
-  <small class="muted">Saat judul atau isi berita berubah, sistem otomatis memberi tanda <b>NEW</b> kepada user sampai berita dibuka.</small>
+  <label>Judul Berita Baru<input id="news_title" placeholder="Contoh: Deposit QRIS Sudah Normal"></label>
+  <label>Isi Berita<textarea id="news_body" rows="5" placeholder="Tulis berita. Link (https://...) otomatis bisa diklik user."></textarea></label>
+  <button class="btn red" onclick="addNews()">+ Tambah Berita</button>
+  <p id="news-msg" class="msg"></p>
+  <small class="muted">Berita langsung terbit saat ditambah/dihapus (tidak perlu Simpan Settings). User mendapat tanda <b>NEW</b> saat ada berita baru.</small>
+  <div id="news-admin-list">${newsAdminListHtml()}</div>
   <h3 class="settings-subtitle">Syarat & Ketentuan</h3>
   <label>Judul Halaman<input id="terms_title" value="${esc(v.terms_title||'Syarat & Ketentuan')}"></label>
   <label>Isi Syarat & Ketentuan<textarea id="terms_content" rows="8" placeholder="Tulis syarat dan ketentuan layanan...">${esc(v.terms_content||'Gunakan layanan dengan data target yang benar.\nPastikan nominal pembayaran dan detail pesanan sudah sesuai sebelum dikirim.\nKetentuan dapat diperbarui oleh admin sewaktu-waktu.')}<\/textarea></label>
@@ -191,9 +236,8 @@ window.showPaymentLogoName=(input,id)=>{const f=input?.files?.[0],el=document.ge
 window.saveSettings=async()=>{
   try{
     const val=id=>document.getElementById(id)?.value ?? '';
-    const newsTitle=val('news_title').trim(); const newsBody=val('news_body').trim(); const oldNewsTitle=val('news_old_title').trim(); const oldNewsBody=val('news_old_body').trim(); const newsEnabledNow=document.getElementById('news_enabled')?.checked!==false;
-    const map={panel_name:val('sn'),owner_name:val('so'),dana_number:val('sd'),dana_name:val('sda'),gopay_number:val('sg'),gopay_name:val('sga'),deposit_fee_percent:val('sdp'),support_whatsapp:val('sw'),support_telegram:val('st'),support_instagram:val('si'),developer_name:val('sdn'),developer_bio:val('sdb'),latest_news_enabled:newsEnabledNow?'true':'false',latest_news_title:newsTitle,latest_news_body:newsBody,terms_title:val('terms_title').trim(),terms_content:val('terms_content').trim(),status_title:val('status_title').trim(),status_content:val('status_content').trim(),telegram_chat_id:val('tc').trim(),telegram_notify_chat_id:val('tnc').trim(),telegram_bot_username:val('tbu').trim(),monitoring_website_url:val('mwu').trim()};
-    if(!val('news_old_updated_at') || newsTitle!==oldNewsTitle || newsBody!==oldNewsBody || newsEnabledNow!== (String(val('news_old_enabled')).toLowerCase()!=='false' && String(val('news_old_enabled'))!=='0')) map.latest_news_updated_at=new Date().toISOString();
+    const newsEnabledNow=document.getElementById('news_enabled')?.checked!==false;
+    const map={panel_name:val('sn'),owner_name:val('so'),dana_number:val('sd'),dana_name:val('sda'),gopay_number:val('sg'),gopay_name:val('sga'),deposit_fee_percent:val('sdp'),support_whatsapp:val('sw'),support_telegram:val('st'),support_instagram:val('si'),developer_name:val('sdn'),developer_bio:val('sdb'),latest_news_enabled:newsEnabledNow?'true':'false',terms_title:val('terms_title').trim(),terms_content:val('terms_content').trim(),status_title:val('status_title').trim(),status_content:val('status_content').trim(),telegram_chat_id:val('tc').trim(),telegram_notify_chat_id:val('tnc').trim(),telegram_bot_username:val('tbu').trim(),monitoring_website_url:val('mwu').trim()};
     const telegramToken=document.getElementById('tb')?.value.trim(); const telegramChat=document.getElementById('tc')?.value.trim();
     if(telegramToken||telegramChat){const meTelegram=(await sb.auth.getUser()).data.user?.id||null;const tg=await sb.from('telegram_config').upsert({id:1,bot_token:telegramToken||null,chat_id:telegramChat||null,updated_by:meTelegram,updated_at:new Date().toISOString()},{onConflict:'id'});if(tg.error)throw tg.error;}
     const qf=document.getElementById('qrisFile')?.files?.[0];

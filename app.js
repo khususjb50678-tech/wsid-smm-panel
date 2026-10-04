@@ -131,8 +131,33 @@ async function load(){
   }
 }
 
+function newsItems(){
+  let arr=[]; const raw=setting('news_items','');
+  try{ if(raw)arr=JSON.parse(raw); }catch(e){ arr=[]; }
+  if(!Array.isArray(arr))arr=[];
+  if(!arr.length && !raw){
+    const b=String(setting('latest_news_body','')).trim();
+    if(b)arr=[{id:'legacy',title:setting('latest_news_title','Informasi Terbaru'),body:b,created_at:setting('latest_news_updated_at','')}];
+  }
+  return arr.filter(x=>x&&(x.title||x.body)).sort((a,b)=>(Date.parse(b.created_at)||0)-(Date.parse(a.created_at)||0));
+}
 function newsUpdatedAt(){
-  return setting('latest_news_updated_at','');
+  const it=newsItems()[0];
+  return it?.created_at||setting('latest_news_updated_at','');
+}
+function linkify(t){
+  return esc(t).replace(/((?:https?:\/\/|www\.)[^\s<]+)/gi,m=>{
+    let url=m,tail='';
+    const mm=url.match(/[.,;:!?)\]]+$/);
+    if(mm){tail=mm[0];url=url.slice(0,-tail.length);}
+    const href=/^www\./i.test(url)?'https://'+url:url;
+    return `<a class="news-link" href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>${tail}`;
+  });
+}
+function newsBodyHtml(x,fallback){
+  const t=cleanText(x||fallback||'').replace(/\r/g,'');
+  const parts=t.split(/\n+/).map(v=>v.trim()).filter(Boolean);
+  return parts.length?parts.map(v=>`<p>${linkify(v)}</p>`).join(''):`<p>${esc(fallback||'')}</p>`;
 }
 function newsEnabled(){
   const v=String(setting('latest_news_enabled','true')).toLowerCase();
@@ -218,7 +243,7 @@ function home(){
     <div><small>Total Profit</small><b>Rp 0</b></div>
   </div>
   <div class="banner"><b>${esc(setting('panel_name','WSID SMM PANEL'))}</b><span>Solusi terbaik untuk kebutuhan sosial media Anda</span><small>Cepat • Aman • Terpercaya</small></div>
-  ${newsEnabled()?`<section class="latest-news-card ${newsUnread()?'is-new':''}"><div class="latest-news-head"><span>🔔 Berita Terbaru</span>${newsUnread()?'<em>NEW</em>':''}</div><h3>${esc(setting('latest_news_title','Informasi Terbaru'))}</h3><p>${esc(cleanText(setting('latest_news_body','Belum ada berita terbaru.')).split(/\n+/)[0]||'Belum ada berita terbaru.')}</p><small>${newsUpdatedAt()?new Date(newsUpdatedAt()).toLocaleString('id-ID'):'Informasi terbaru dari admin'}</small><button class="btn mini red" onclick="nav('news')">Lihat Berita</button></section>`:''}
+  ${newsEnabled()?`<section class="latest-news-card ${newsUnread()?'is-new':''}"><div class="latest-news-head"><span>🔔 Berita Terbaru</span>${newsUnread()?'<em>NEW</em>':''}</div><h3>${esc(newsItems()[0]?.title||'Informasi Terbaru')}</h3><p>${esc(cleanText(newsItems()[0]?.body||'Belum ada berita terbaru.').split(/\n+/)[0]||'Belum ada berita terbaru.')}</p><small>${newsUpdatedAt()?new Date(newsUpdatedAt()).toLocaleString('id-ID'):'Informasi terbaru dari admin'}</small><button class="btn mini red" onclick="nav('news')">Lihat Berita${newsItems().length>1?' ('+newsItems().length+')':''}</button></section>`:''}
   <h2>Layanan Populer</h2>
   <div class="grid2">${['TikTok','Instagram','YouTube','Facebook'].map(x=>`<button onclick="nav('order')"><b>${x}</b><small>Layanan ${x}</small></button>`).join('')}</div>
   <div class="balance"><span>Saldo Anda<br><b>${money(S.wallet?.balance)}</b></span><button class="btn red" onclick="nav('deposit')">Deposit</button></div>
@@ -236,11 +261,10 @@ function home(){
 
 async function news(){
   markNewsRead();
-  const title=setting('latest_news_title','Informasi Terbaru');
-  const body=setting('latest_news_body','Belum ada berita terbaru dari admin.');
-  const when=newsUpdatedAt();
+  const items=newsItems();
+  const cards=items.length?items.map((n,i)=>`<section class="info-card latest-news-page ${i?'news-old':''}"><div class="info-card-top"><span>${i?'BERITA':'BERITA TERBARU'}</span>${n.created_at?`<small>${new Date(n.created_at).toLocaleString('id-ID')}</small>`:''}</div><h2>${esc(n.title||'Informasi')}</h2><div class="info-content">${newsBodyHtml(n.body,'')}</div></section>`).join(''):`<section class="info-card latest-news-page"><div class="info-content"><p>Belum ada berita terbaru dari admin.</p></div></section>`;
   return `<div class="head"><h1>🔔 Notifikasi Terbaru</h1><small>Informasi dan pengumuman terbaru dari admin.</small></div>
-  <section class="info-card latest-news-page"><div class="info-card-top"><span>BERITA TERBARU</span>${when?`<small>${new Date(when).toLocaleString('id-ID')}</small>`:''}</div><h2>${esc(title)}</h2><div class="info-content">${infoText(body,'Belum ada berita terbaru dari admin.')}</div></section>
+  <div class="news-stack">${cards}</div>
   <button class="btn wide" onclick="nav('home')">← Kembali ke Beranda</button>`;
 }
 function terms(){
